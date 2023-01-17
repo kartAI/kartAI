@@ -382,17 +382,17 @@ Windows:
 
 The script opens a GUI table to view results, as well as an excel file.
 
-### Building count result table
+### [WIP] Building count result table
 
-By adding the parameter `--ksand true` you will instead get a full list of how each model is performing on the given test area for the project.
+By adding the parameter `-ksand true` you will instead get a full list of how each model is performing on the given test area for the project.
 
 Unix:
 
-`./kai results --ksand true`
+`./kai results -ksand true`
 
 Windows:
 
-`kai.bat results --ksand true`
+`kai.bat results -ksand true`
 
 ## Using the trained models
 

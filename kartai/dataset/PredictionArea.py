@@ -5,6 +5,7 @@ import env
 from kartai.datamodels_and_services.DatasetBuilder import DatasetBuilder
 from kartai.tools.create_training_data import (DatasetBuilder, Region,
                                                getImageSets, getTileGrid, getImageSources)
+from kartai.datamodels_and_services.ImageSourceServices import Tile
 
 
 def fetch_data_to_predict(geom, config_path):
@@ -33,4 +34,4 @@ def fetch_data_to_predict(geom, config_path):
     if not os.path.exists(data_path):
         os.mkdir(data_path)
     with open(data_path + "/prediction_set.json", "w") as file:
-        json.dump(tileset_to_json(dataset), file)
+        json.dump(Tile.tileset_to_json(dataset), file)
