@@ -231,6 +231,13 @@ Example of project arguments, that will affect production of the dataset.
 }
 ```
 
+### Created dataset format
+
+Once a dataset is created there will be several files generated.
+Labels area created and saved to `training_data/AzureByggDb/{tilegri}/{tilesize}`.
+However, the WMSImageSource are not created yet, only information about how the can be downloaded. The actual data is downloaded once you start training a model with the given dataset.
+
+
 ### Create Training Data Script
 
 Arguments:
