@@ -7,7 +7,7 @@ import json
 import os
 import tensorflow as tf
 from kartai.utils.dataset_utils import get_X_tuple, get_ground_truth, get_X_stack
-
+from kartai.datamodels_and_services.ImageSourceServices import Tile
 
 class DataGenerator(K.utils.Sequence):
     def __init__(self, datagenerator_config, num_classes, dataset_type, created_datasets_dirs, batch_size, shuffle=True):
@@ -18,7 +18,8 @@ class DataGenerator(K.utils.Sequence):
 
         for created_dataset in created_datasets_dirs:
             with open(os.path.join(created_dataset, filename), 'r') as input_data:
-                input_list_dataset = json.load(input_data)
+                input_list_dataset_json = json.load(input_data)
+                input_list_dataset = Tile.tileset_from_json(input_list_dataset_json)
                 input_list = input_list + input_list_dataset
 
         self.datagenerator_config = datagenerator_config
@@ -38,33 +39,33 @@ class DataGenerator(K.utils.Sequence):
         indexes = self.indexes[index *
                                self.batch_size: (index + 1) * self.batch_size]
 
-        datapaths_for_batch = [self.input_list[k] for k in indexes]
+        tileset_for_batch = [self.input_list[k] for k in indexes]
 
         if(len(self.datagenerator_config["model_input_stack"])):
             return self._get_stack_item(
-                datapaths_for_batch, self.datagenerator_config["model_input_stack"], self.datagenerator_config["ground_truth"])
+                tileset_for_batch, self.datagenerator_config["model_input_stack"], self.datagenerator_config["ground_truth"])
 
         elif(len(self.datagenerator_config["model_input_tuple"])):
             return self._get_tuple_item(
-                datapaths_for_batch, self.datagenerator_config["model_input_tuple"], self.datagenerator_config["ground_truth"])
+                tileset_for_batch, self.datagenerator_config["model_input_tuple"], self.datagenerator_config["ground_truth"])
 
         else:
             print(
                 'Missing either model_input_stack or model_input_tuple in datagenerator config')
             sys.exit(1)
 
-    def _get_tuple_item(self, datapaths_for_batch, tuple_input, ground_truth):
+    def _get_tuple_item(self, tileset_for_batch, tuple_input, ground_truth):
         X_tuple = get_X_tuple(
-            self.batch_size, datapaths_for_batch, tuple_input)
+            self.batch_size, tileset_for_batch, tuple_input)
         Y_batch = get_ground_truth(
-            self.batch_size, datapaths_for_batch, ground_truth)
+            self.batch_size, tileset_for_batch, ground_truth)
         return X_tuple, Y_batch
 
-    def _get_stack_item(self, datapaths_for_batch, input_stack, ground_truth):
+    def _get_stack_item(self, tileset_for_batch, input_stack, ground_truth):
         X_batch = get_X_stack(
-            self.batch_size, datapaths_for_batch, input_stack)
+            self.batch_size, tileset_for_batch, input_stack)
         Y_batch = get_ground_truth(
-            self.batch_size, datapaths_for_batch, ground_truth)
+            self.batch_size, tileset_for_batch, ground_truth)
 
         return X_batch, Y_batch
 

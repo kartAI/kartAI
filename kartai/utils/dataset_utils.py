@@ -70,14 +70,13 @@ def get_X_stack(batch_size, datapaths_for_batch, input_stack):
             channels = input['dimensions'][2]
             data_instance = None
             try:
-                data_instance = Image.open(
-                    datapaths_for_batch[i][input_name])
+                data_instance = datapaths_for_batch[i][input_name].array
             except BaseException as ex:
                 print(
                     f"error opening image: {datapaths_for_batch[i]}, {ex}", file=sys.stderr)
 
-            if data_instance:
-                data_instance_array = np.array(data_instance)
+            if data_instance is not None:
+                data_instance_array = data_instance.transpose((1,2,0))#np.array(data_instance)
                 if(len(data_instance_array.shape) == 2):
                     data_instance_array = np.expand_dims(
                         data_instance_array, 2)
@@ -86,29 +85,29 @@ def get_X_stack(batch_size, datapaths_for_batch, input_stack):
                     X_stack, data_instance_array, axis=2)
             else:
                 X_stack = np.append(X_stack, np.empty(
-                    first_dim, second_dim, channels), axis=2)
+                    (first_dim, second_dim, channels)), axis=2)
 
         X_batch[i, ] = X_stack
 
     return X_batch
 
 
-def get_ground_truth(batch_size, datapaths_for_batch, ground_truth):
+def get_ground_truth(batch_size, tileset_for_batch, ground_truth):
     dimensions = ground_truth["dimensions"]
 
     Y_batch = np.empty(
         (batch_size, dimensions[0], dimensions[1], dimensions[2]), dtype=int)
 
-    for i in range(len(datapaths_for_batch)):
+    for i in range(len(tileset_for_batch)):
         y_img = None
         ground_truth_name = ground_truth["name"]
         try:
-            y_img = Image.open(datapaths_for_batch[i][ground_truth_name])
+            y_img = tileset_for_batch[i][ground_truth_name].array
         except BaseException as ex:
             print(
-                f"error opening image: {datapaths_for_batch[i]}.ground_truth_name, {ex}", file=sys.stderr)
+                f"error opening image: {tileset_for_batch[i]}.ground_truth_name, {ex}", file=sys.stderr)
 
-        if y_img:
+        if y_img is not None:
             Y_batch[i, :, :, 0] = np.array(y_img)
         else:
             Y_batch[i, :, :, 0] = np.zeros(

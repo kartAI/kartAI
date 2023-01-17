@@ -1,4 +1,4 @@
-from osgeo import gdal, ogr
+from osgeo import gdal, ogr, osr
 import imageio
 import os
 import requests
@@ -12,6 +12,70 @@ import env
 
 ogr.UseExceptions()
 gdal.UseExceptions()
+
+
+class TileGrid:
+    """Specification of the geometry of a tiled image grid"""
+
+    def __init__(self, srid, x0, y0, dx, dy=None):
+        """Create an image tile grid in a coordinate system given by srid,
+        using x0, y0 as origin and each image tile having sidelength dx, dy.
+        Select an origin south-west of your data area so that all tile indices will be positive"""
+        self.srid = srid
+        self.srs = osr.SpatialReference()
+        self.srs.ImportFromEPSG(srid)
+        self.x0 = x0
+        self.y0 = y0
+        self.dx = dx
+        self.dy = dy if dy is not None else dx
+
+    def image_geom(self, i, j):
+        """Return the extent if an image tile with grid index i, j as
+        minx, miny, maxx, maxy"""
+        minx = self.x0 + i * self.dx
+        miny = self.y0 + j * self.dy
+        maxx = minx + self.dx
+        maxy = miny + self.dy
+        return minx, miny, maxx, maxy
+
+    def generate_ij(self, region):
+        """Generator function for iterating through all i, j indexes for image
+        tiles intersecting the specified area.
+        Area is currently a rectangle specified by a list or tuple
+        [minx, miny, maxx, maxy], but more complex shapes may be allowed in the future"""
+        mini = int(math.floor((region.minx - self.x0) / self.dx))
+        minj = int(math.floor((region.miny - self.y0) / self.dy))
+        maxi = int(math.ceil((region.maxx - self.x0) / self.dx))
+        maxj = int(math.ceil((region.maxy - self.y0) / self.dy))
+
+        # Create ring, fill with zero
+        ring = ogr.Geometry(ogr.wkbLinearRing)
+        ring.AddPoint(0, 0)
+        ring.AddPoint(0, 0)
+        ring.AddPoint(0, 0)
+        ring.AddPoint(0, 0)
+        ring.AddPoint(0, 0)
+
+        # Create polygon
+        poly = ogr.Geometry(ogr.wkbPolygon)
+        poly.AddGeometryDirectly(ring)
+        poly.AssignSpatialReference(region.poly.GetSpatialReference())
+
+        j = minj
+        while j <= maxj:
+            i = mini
+            while i <= maxi:
+                minx, miny, maxx, maxy = self.image_geom(i, j)
+                ring.SetPoint_2D(0, minx, miny)
+                ring.SetPoint_2D(1, maxx, miny)
+                ring.SetPoint_2D(2, maxx, maxy)
+                ring.SetPoint_2D(3, minx, maxy)
+                ring.SetPoint_2D(4, minx, miny)
+
+                if region.poly.Intersects(poly):
+                    yield i, j
+                i += 1
+            j += 1
 
 
 class Tile:
@@ -36,42 +100,112 @@ class Tile:
     @property
     def array(self):
         """Return the image array, load if necessary"""
-        self.load()
+        self._load()
         return self._array
 
     @property
     def srs_wkt(self):
         """Return the image spatial reference system, load if necessary"""
-        self.load()
+        self._load()
         return self._srs_wkt
 
     @property
     def geo_transform(self):
         """Return the image geographic transform, load if necessary"""
-        self.load()
+        self._load()
         return self._geo_transform
 
-    def load(self):
+    def to_json(self):
+        return {
+            "image_source": self._image_source.source_name,
+            "i": self._i,
+            "j": self._j,
+            "tile_size": self._tile_size
+        }
+
+    @classmethod
+    def from_json(cls, jn, sources):
+        return cls(sources[jn["image_source"]], jn["i"], jn["j"], jn["tile_size"])
+
+    @staticmethod
+    def tileset_to_json(tileset):
+        jn = {}
+        image_sources = set()
+        json_examples = []
+        for item in tileset:
+            conv_item = {}
+            for k, v in item.items():
+                conv_item[k] = v.to_json()
+                image_sources.add(v._image_source)
+            json_examples.append(conv_item)
+        jn["Examples"] = json_examples
+
+        cache_root = None
+        tile_grid = None
+        json_im_srs = []
+        for im_source in image_sources:
+            if cache_root is None:
+                cache_root = im_source.cache_root
+            if tile_grid is None:
+                tile_grid = im_source.tile_grid
+            json_im_srs += im_source.to_json()
+        jn["ImageSources"] = json_im_srs
+
+        jn["CacheRoot"] = cache_root
+        jn["TileGrid"] = {
+            "srid": tile_grid.srid,
+            "x0": tile_grid.x0,
+            "y0": tile_grid.y0,
+            "dx": tile_grid.dx,
+            "dy": tile_grid.dy
+        }
+
+        return jn
+
+    @classmethod
+    def tileset_from_json(cls, jn):
+        tileset = []
+        image_sources = {}
+        tile_grid = TileGrid(jn["TileGrid"]["srid"],
+                        jn["TileGrid"]["x0"], jn["TileGrid"]["y0"],
+                        jn["TileGrid"]["dx"], jn["TileGrid"]["dy"])
+
+        for source_config in jn["ImageSources"]:
+            source = ImageSourceFactory.create(
+                jn["CacheRoot"], tile_grid, image_sources, source_config)
+            if source:
+                image_sources[source_config["name"]] = source
+            else:
+                print("Unknown source:", source_config, file=sys.stderr)
+
+        for item in jn["Examples"]:
+            conv_item = {}
+            for k, v in item.items():
+                conv_item[k] = cls.from_json(v, image_sources)
+            tileset.append(conv_item)
+
+        return tileset
+
+    def _load(self):
         if self._array is not None and self._srs_wkt and self._geo_transform:
             return
         file_path = self.file_path
         if not file_path:
             raise ValueError("No file_path?")
-        if os.path.exists(file_path):
+        if self._image_source.cache_root is not None and os.path.exists(file_path):
             data_source = gdal.Open(file_path)
             self._geo_transform = data_source.GetGeoTransform()
             self._srs_wkt = data_source.GetSpatialRef().ExportToWkt()
             self._array = data_source.ReadAsArray()
         else:
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
             # *img_geom, = self._image_source.tile_grid.image_geom(self._i, self._j)
             self._array, self._srs_wkt, self._geo_transform = \
                 self._image_source.load_tile(self._i, self._j, self._tile_size)
             # self._image_source.load_image(file_path, *img_geom, self._tile_size)
-            if not os.path.exists(file_path):
-                self.save()
+            if self._image_source.cache_root is not None and not os.path.exists(file_path):
+                self._save()
 
-    def save(self):
+    def _save(self):
         if not (self._array is not None and self._srs_wkt and self._geo_transform):
             raise ValueError("No data?")
 
@@ -94,6 +228,7 @@ class Tile:
             driver = gdal.GetDriverByName("GTiff")
             gdal_options = ['COMPRESS=LZW', 'PREDICTOR=2']
 
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
         data_source = driver.Create(file_path,
                                     self._array.shape[0], self._array.shape[1],
                                     self._array.shape[2] if len(
@@ -110,22 +245,19 @@ class ImageSourceFactory:
     @staticmethod
     def create(cache_root, tile_grid, image_sources, layer_spec):
         type = layer_spec["type"]
-        name = layer_spec["name"]
 
         if type == "WMSImageSource":
-            return WMSImageSource(cache_root, tile_grid, name, layer_spec["image_format"], layer_spec["url"], layer_spec["api_key"],
-                                  layer_spec["layers"], layer_spec["styles"] if "styles" in layer_spec else [])
+            return WMSImageSource(cache_root, tile_grid, layer_spec)
         elif type == "ImageFileImageSource":
-            return ImageFileImageSource(cache_root, tile_grid, name, layer_spec["image_format"], layer_spec["file_path"])
+            return ImageFileImageSource(cache_root, tile_grid, layer_spec)
         elif type == "WCSImageSource":
-            return WCSImageSource(cache_root, tile_grid, name, layer_spec["image_format"], layer_spec['coverage'], layer_spec["url"])
+            return WCSImageSource(cache_root, tile_grid, layer_spec)
         elif type == "PostgresImageSource":
-            return PostgresImageSource(cache_root, tile_grid, name, layer_spec["image_format"], layer_spec)
+            return PostgresImageSource(cache_root, tile_grid, layer_spec)
         elif type == "VectorFileImageSource":
-            return VectorFileImageSource(cache_root, tile_grid, name, layer_spec["image_format"], layer_spec["file_path"],
-                                         layer_spec)
+            return VectorFileImageSource(cache_root, tile_grid, layer_spec)
         elif type == "CompositeImageSource":
-            return CompositeImageSource(cache_root, tile_grid, name, layer_spec["image_format"], image_sources, layer_spec["composition"])
+            return CompositeImageSource(cache_root, tile_grid, layer_spec, image_sources)
         return None
 
 
@@ -143,11 +275,12 @@ class ImageSource:
         "image/jpeg": "jpg"
     }
 
-    def __init__(self, cache_root, tile_grid, source_name, img_format):
+    def __init__(self, cache_root, tile_grid, layer_spec):
         self.cache_root = cache_root
         self.tile_grid = tile_grid
-        self.source_name = source_name
-        self.img_format = img_format
+        self.source_name = layer_spec["name"]
+        self.img_format = layer_spec["image_format"]
+        self.layer_spec = layer_spec
 
     def image_path(self, i, j, tile_size):
         """Return the file path to a cached image with tile grid index i, j.
@@ -162,11 +295,15 @@ class ImageSource:
         100 and 100 are the x and y extent of a tile,
         512 is the image size (in pixels) and
         32 and 74 is the tile grid indices i, j in the x and y direction"""
-        return (os.path.join(self.cache_root,
-                self.source_name,
-                f'{self.tile_grid.srid}_{self.tile_grid.x0}_{self.tile_grid.y0}_{self.tile_grid.dx}_{self.tile_grid.dy}',
-                             f'{tile_size}',
-                             f'{i}_{j}.{self.format_ext[self.img_format]}'))
+
+        retval = os.path.join(self.source_name,
+                              f'{self.tile_grid.srid}_{self.tile_grid.x0}_{self.tile_grid.y0}_{self.tile_grid.dx}_{self.tile_grid.dy}',
+                              f'{tile_size}',
+                              f'{i}_{j}.{self.format_ext[self.img_format]}')
+
+        if self.cache_root is not None:
+            retval = os.path.join(self.cache_root, retval)
+        return retval
 
     def load_tile(self, i, j, tile_size):
         img_path = self.image_path(i, j, tile_size)
@@ -179,21 +316,25 @@ class ImageSource:
         raise NotImplementedError(
             f"Class {self.__class__.__name__}.load_image is not implemented")
 
+    def to_json(self):
+        return [self.layer_spec]
+
 
 class WMSImageSource(ImageSource):
     """Fetch images from an WMS service"""
 
-    def __init__(self, cache_root, tile_grid, source_name, format, base_url, api_key, layers, styles):
-        super().__init__(cache_root, tile_grid, source_name, format)
-        self.base_url = base_url
-        self.layers = layers
-        self.styles = styles
-        self.api_key = api_key
+    def __init__(self, cache_root, tile_grid, layer_spec):
+        super().__init__(cache_root, tile_grid, layer_spec)
+
+        self.base_url = layer_spec["url"]
+        self.layers = layer_spec["layers"]
+        self.styles = layer_spec["styles"] if "styles" in layer_spec else []
+        self.api_key = layer_spec["api_key"] if "api_key" in layer_spec else None
 
     def load_image(self, image_path, minx, miny, maxx, maxy, tile_size):
 
         params = {
-            'api_key': env.get_env_variable(self.api_key),
+            'api_key': env.get_env_variable(self.api_key) if self.api_key else None,
             'request': 'GetMap',
             'layers': ",".join(self.layers),
             'styles': ",".join(self.styles) if self.styles else None,
@@ -215,6 +356,7 @@ class WMSImageSource(ImageSource):
             print("request status is 200")
             if req.headers['content-type'] == self.img_format:
                 # If response is OK and an image, save image file
+                os.makedirs(os.path.dirname(image_path), exist_ok=True)
                 with open(image_path, 'wb') as out_file:
                     shutil.copyfileobj(req.raw, out_file)
 
@@ -242,11 +384,11 @@ class WMSImageSource(ImageSource):
 class WCSImageSource(ImageSource):
     """Fetch images from a WCS service"""
 
-    def __init__(self, cache_root, tile_grid, source_name, format, coverage, base_url):
-        super().__init__(cache_root, tile_grid, source_name, format)
-        self.base_url = base_url
+    def __init__(self, cache_root, tile_grid, layer_spec):
+        super().__init__(cache_root, tile_grid, layer_spec)
+        self.base_url = layer_spec["url"]
         self.img_srs = {}
-        self.coverage = coverage
+        self.coverage = layer_spec['coverage']
 
     def load_image(self, image_path, minx, miny, maxx, maxy, tile_size):
         params = {
@@ -290,6 +432,7 @@ class WCSImageSource(ImageSource):
         data = imageio.imread(req.content, ".tif")
 
         # If response is OK and an image, save image file
+        os.makedirs(os.path.dirname(image_path), exist_ok=True)
         target_ds = gdal.GetDriverByName('GTiff').Create(
             str(image_path),
             tile_size, tile_size, 1, gdal.GDT_Float32,
@@ -312,22 +455,28 @@ class OGRImageSource(ImageSource):
     "Burn" vectordata into images. Uses OGR. Usually used as a base class for Postgres or vector file sources
     """
 
-    def __init__(self, cache_root, tile_grid, source_name, format, layer=None, attribute_filter=None):
-        super().__init__(cache_root, tile_grid, source_name, format)
+    def __init__(self, cache_root, tile_grid, layer_spec):
+        super().__init__(cache_root, tile_grid, layer_spec)
 
         # The layer
-        self.layer = layer
+        self.layer = None
 
         # Setup attribute filter
-        if attribute_filter:
-            if isinstance(attribute_filter, (list, tuple)):
-                self.attribute_filter = [af for af in attribute_filter]
+        self.attribute_filter_json = layer_spec["attribute_filter"] if "attribute_filter" in layer_spec else None
+        if self.attribute_filter_json:
+            if isinstance(self.attribute_filter_json, (list, tuple)):
+                self.attribute_filter = [af for af in self.attribute_filter_json]
             else:
-                self.attribute_filter = [attribute_filter]
+                self.attribute_filter = [self.attribute_filter_json]
         else:
             self.attribute_filter = [None]
 
+    def open(self):
+        raise NotImplementedError(
+            f"Class {self.__class__.__name__}.open() is not implemented")
+
     def load_image(self, image_path, minx, miny, maxx, maxy, tile_size):
+        os.makedirs(os.path.dirname(image_path), exist_ok=True)
         target_ds = gdal.GetDriverByName('GTiff').Create(
             image_path,
             tile_size, tile_size, 1, gdal.GDT_Byte, ['COMPRESS=LZW', 'PREDICTOR=2'])
@@ -338,6 +487,9 @@ class OGRImageSource(ImageSource):
         target_ds.SetGeoTransform(geo_transform)
         srs_wkt = self.tile_grid.srs.ExportToWkt()
         target_ds.SetProjection(srs_wkt)
+
+        if self.layer is None:
+            self.open()
 
         # Create ring
         if self.layer.GetSpatialRef():
@@ -387,23 +539,22 @@ class OGRImageSource(ImageSource):
 class PostgresImageSource(OGRImageSource):
     """A Postgres / PostGIS specialization of the OGRImageSource. Has database connection convenience initializer"""
 
-    def __init__(self, cache_root, tile_grid, source_name, format, layer_spec):
-        attribute_filter = layer_spec["attribute_filter"] if "attribute_filter" in layer_spec else None
-        super().__init__(cache_root, tile_grid, source_name,
-                         format, attribute_filter=attribute_filter)
+    def __init__(self, cache_root, tile_grid, layer_spec):
+        super().__init__(cache_root, tile_grid, layer_spec)
 
+    def open(self):
         # Connect to database
         # print('connecting to db')
-        connectionPwd = env.get_env_variable(layer_spec['passwd'])
-        connString = f"PG: host={layer_spec['host']} port={layer_spec['port']} dbname={layer_spec['database']} " + \
-                     f"user={layer_spec['user']} password={connectionPwd}"
+        connectionPwd = env.get_env_variable(self.layer_spec['passwd'])
+        connString = f"PG: host={self.layer_spec['host']} port={self.layer_spec['port']} dbname={self.layer_spec['database']} " + \
+                     f"user={self.layer_spec['user']} password={connectionPwd}"
         self.data_source = ogr.Open(connString)
         # print('created connection', self.conn)
 
-        if "sql" in layer_spec:
-            self.layer = self.data_source.ExecuteSQL(layer_spec["sql"])
-        elif "table" in layer_spec:
-            self.layer = self.data_source.GetLayerByName(layer_spec["table"])
+        if "sql" in self.layer_spec:
+            self.layer = self.data_source.ExecuteSQL(self.layer_spec["sql"])
+        elif "table" in self.layer_spec:
+            self.layer = self.data_source.GetLayerByName(self.layer_spec["table"])
         if not self.layer:
             raise ValueError("No layer?")
 
@@ -411,13 +562,13 @@ class PostgresImageSource(OGRImageSource):
 class VectorFileImageSource(OGRImageSource):
     """A vector database specialization of the OGRImageSource. Has database connection convenience initializer"""
 
-    def __init__(self, cache_root, tile_grid, source_name, format, file_path, layer_spec):
-        attribute_filter = layer_spec["attribute_filter"] if "attribute_filter" in layer_spec else None
-        super().__init__(cache_root, tile_grid, source_name,
-                         format, attribute_filter=attribute_filter)
-        self.data_source = ogr.Open(file_path)
-        if "layer" in layer_spec:
-            self.layer = self.data_source.GetLayerByName(layer_spec["layer"])
+    def __init__(self, cache_root, tile_grid, layer_spec):
+        super().__init__(cache_root, tile_grid, layer_spec)
+
+    def open(self):
+        self.data_source = ogr.Open(self.layer_spec["file_path"])
+        if "layer" in self.layer_spec:
+            self.layer = self.data_source.GetLayerByName(self.layer_spec["layer"])
         else:
             self.layer = self.data_source.GetLayerByIndex()
 
@@ -429,10 +580,10 @@ class ImageFileImageSource(ImageSource):
     This should work for all gdal-supported formats, including VRT (for tiled image mosaics)
     """
 
-    def __init__(self, cache_root, tile_grid, source_name, format, file_path):
-        super().__init__(cache_root, tile_grid, source_name, format)
-        self.file_path = file_path
-        self.data_source = gdal.Open(file_path)
+    def __init__(self, cache_root, tile_grid, layer_spec):
+        super().__init__(cache_root, tile_grid, layer_spec)
+        self.file_path = layer_spec["file_path"]
+        self.data_source = gdal.Open(self.file_path)
         self.img_srs = {}
 
     def load_image(self, image_path, minx, miny, maxx, maxy, tile_size):
@@ -454,7 +605,6 @@ class ImageFileImageSource(ImageSource):
                             self.data_source.GetSpatialRef().ExportToWkt(), srs_wkt, gdal.GRA_Bilinear)
 
         return target_ds.ReadAsArray(), srs_wkt, geo_transform
-
 
 class Composition:
     """Create an image from operations on other images"""
@@ -615,17 +765,45 @@ class AddComposition(Composition):
 class CompositeImageSource(ImageSource):
     """Create a composition of images from various sources"""
 
-    def __init__(self, cache_root, tile_grid, source_name, format, image_sources, composition):
-        super().__init__(cache_root, tile_grid, source_name, format)
-        self.composition = Composition.create(composition, image_sources)
+    def __init__(self, cache_root, tile_grid, layer_spec, image_sources):
+        super().__init__(cache_root, tile_grid, layer_spec)
+
+        self.composition = Composition.create(layer_spec["composition"], image_sources)
 
     def load_tile(self, i, j, tile_size):
         """Find an image with tile grid indices i, j and return the cached image path.
               Load the image if necessary. After this method is called you are assured that the
               image is loaded at the given file path address"""
-        img_path = self.image_path(i, j, tile_size)
-        if os.path.exists(img_path):
-            return Tile(img_path)
-        os.makedirs(os.path.dirname(img_path), exist_ok=True)
-        arr, srs_wkt, geo_transform = self.composition.get_tile(i, j, tile_size)
+
+        if self.cache_root is None:
+            arr, srs_wkt, geo_transform =  self.composition.get_tile(i, j, tile_size)
+        else:
+            img_path = self.image_path(i, j, tile_size)
+            if os.path.exists(img_path):
+                data_source = gdal.Open(img_path)
+                geo_transform = data_source.GetGeoTransform()
+                srs_wkt = data_source.GetSpatialRef().ExportToWkt()
+                arr = data_source.ReadAsArray()
+            else:
+                os.makedirs(os.path.dirname(img_path), exist_ok=True)
+                arr, srs_wkt, geo_transform = self.composition.get_tile(i, j, tile_size)
         return arr, srs_wkt, geo_transform
+
+    def _find_dependent_sources(self, cmp):
+        retval = set()
+        if isinstance(cmp, SourceComposition):
+            retval.add(cmp.content)
+        elif isinstance(cmp, Composition):
+            retval |= self._find_dependent_sources(cmp.content)
+        elif hasattr(cmp, '__iter__'):
+            for ch in cmp:
+                retval |= self._find_dependent_sources(ch)
+        return retval
+
+    def to_json(self):
+        retval = super().to_json()
+        sub = self._find_dependent_sources(self.composition)
+        for s in sub:
+            retval = s.to_json() + retval
+
+        return retval

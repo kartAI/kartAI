@@ -33,4 +33,4 @@ def fetch_data_to_predict(geom, config_path):
     if not os.path.exists(data_path):
         os.mkdir(data_path)
     with open(data_path + "/prediction_set.json", "w") as file:
-        json.dump(dataset, file)
+        json.dump(tileset_to_json(dataset), file)

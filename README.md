@@ -287,7 +287,7 @@ Unix:
 
 Windows:
 
-`kai.bat data_teacher -n kystlinje_sornorge -v_dn validation_dataset -t_dn training_datateacher_set -m unet --region training_data/regions/auto_expand_region.json` |
+`kai.bat data_teacher -n kystlinje_sornorge -v_dn validation_dataset -t_dn training_datateacher_set -m unet --region training_data/regions/auto_expand_region.json`
 
 ## Train
 
@@ -295,7 +295,7 @@ When training a model you can define both the data to train on, and the model to
 
 ### Datagenerator config file
 
-In order to tell the data generator how to feed the ML-model with data, we have created config files that determines the shape of the inputs.
+In order to tell the data generator how to feed the ML-model with data, we have created config files under `config/ml_input_generator` that determines the shape of the inputs.
 We can choose between stacking all the inputs into one image with several channels, or we can keep each image as a separate input in a tuple.
 
 ```json

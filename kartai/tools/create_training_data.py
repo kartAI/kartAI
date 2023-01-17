@@ -17,71 +17,8 @@ from kartai.utils.dataset_utils import (check_for_existing_dataset,
                                         get_dataset_region)
 from kartai.datamodels_and_services.DatasetBuilder import DatasetBuilder
 from kartai.datamodels_and_services.ImageSet import getImageSets
-from kartai.datamodels_and_services.ImageSourceServices import ImageSourceFactory
+from kartai.datamodels_and_services.ImageSourceServices import ImageSourceFactory, TileGrid, Tile
 
-
-class TileGrid:
-    """Specification of the geometry of a tiled image grid"""
-
-    def __init__(self, srid, x0, y0, dx, dy=None):
-        """Create an image tile grid in a coordinate system given by srid,
-        using x0, y0 as origin and each image tile having sidelength dx, dy.
-        Select an origin south-west of your data area so that all tile indices will be positive"""
-        self.srid = srid
-        self.srs = osr.SpatialReference()
-        self.srs.ImportFromEPSG(srid)
-        self.x0 = x0
-        self.y0 = y0
-        self.dx = dx
-        self.dy = dy if dy is not None else dx
-
-    def image_geom(self, i, j):
-        """Return the extent if an image tile with grid index i, j as
-        minx, miny, maxx, maxy"""
-        minx = self.x0 + i * self.dx
-        miny = self.y0 + j * self.dy
-        maxx = minx + self.dx
-        maxy = miny + self.dy
-        return minx, miny, maxx, maxy
-
-    def generate_ij(self, region):
-        """Generator function for iterating through all i, j indexes for image
-        tiles intersecting the specified area.
-        Area is currently a rectangle specified by a list or tuple
-        [minx, miny, maxx, maxy], but more complex shapes may be allowed in the future"""
-        mini = int(math.floor((region.minx - self.x0) / self.dx))
-        minj = int(math.floor((region.miny - self.y0) / self.dy))
-        maxi = int(math.ceil((region.maxx - self.x0) / self.dx))
-        maxj = int(math.ceil((region.maxy - self.y0) / self.dy))
-
-        # Create ring, fill with zero
-        ring = ogr.Geometry(ogr.wkbLinearRing)
-        ring.AddPoint(0, 0)
-        ring.AddPoint(0, 0)
-        ring.AddPoint(0, 0)
-        ring.AddPoint(0, 0)
-        ring.AddPoint(0, 0)
-
-        # Create polygon
-        poly = ogr.Geometry(ogr.wkbPolygon)
-        poly.AddGeometryDirectly(ring)
-        poly.AssignSpatialReference(region.poly.GetSpatialReference())
-
-        j = minj
-        while j <= maxj:
-            i = mini
-            while i <= maxi:
-                minx, miny, maxx, maxy = self.image_geom(i, j)
-                ring.SetPoint_2D(0, minx, miny)
-                ring.SetPoint_2D(1, maxx, miny)
-                ring.SetPoint_2D(2, maxx, maxy)
-                ring.SetPoint_2D(3, minx, maxy)
-                ring.SetPoint_2D(4, minx, miny)
-
-                if region.poly.Intersects(poly):
-                    yield i, j
-                i += 1
-            j += 1
 
 
 def create_metadata_file(id, training_dataset_name, tile_size, area_extent, region, max_size, division, out_folder):
@@ -109,7 +46,6 @@ def getTileGrid(config):
     return TileGrid(config["TileGrid"]["srid"],
                     config["TileGrid"]["x0"], config["TileGrid"]["y0"],
                     config["TileGrid"]["dx"], config["TileGrid"]["dy"])
-
 
 def convert_tileset(tileset):
     conv_tileset = []
@@ -183,35 +119,32 @@ def create_training_data(training_dataset_name, config_file_path, confidence_thr
     os.makedirs(data_path, exist_ok=True)
     vrt_opt = gdal.BuildVRTOptions(addAlpha=True)
     if train_set:
-        train_set = convert_tileset(train_set)
         with open(os.path.join(data_path, "train_set.json"), "w", encoding="utf8") as file:
-            json.dump(train_set, file)
+            json.dump(Tile.tileset_to_json(train_set), file)
         image_channels = collections.defaultdict(list)
         for itm in train_set:
             for k, v in itm.items():
-                image_channels[k].append(os.path.abspath(v))
+                image_channels[k].append(os.path.abspath(v.file_path))
         for k, v in image_channels.items():
             gdal.BuildVRT(os.path.join(
                 data_path, f"train_{k}.vrt"), v, options=vrt_opt)
     if valid_set:
-        valid_set = convert_tileset(valid_set)
         with open(os.path.join(data_path, "valid_set.json"), "w", encoding="utf8") as file:
-            json.dump(valid_set, file)
+            json.dump(Tile.tileset_to_json(valid_set), file)
         image_channels = collections.defaultdict(list)
         for itm in valid_set:
             for k, v in itm.items():
-                image_channels[k].append(os.path.abspath(v))
+                image_channels[k].append(os.path.abspath(v.file_path))
         for k, v in image_channels.items():
             gdal.BuildVRT(os.path.join(
                 data_path, f"valid_{k}.vrt"), v, options=vrt_opt)
     if test_set:
-        test_set = convert_tileset(test_set)
         with open(os.path.join(data_path, "test_set.json"), "w", encoding="utf8") as file:
-            json.dump(test_set, file)
+            json.dump(Tile.tileset_to_json(test_set), file)
         image_channels = collections.defaultdict(list)
         for itm in test_set:
             for k, v in itm.items():
-                image_channels[k].append(os.path.abspath(v))
+                image_channels[k].append(os.path.abspath(v.file_path))
         for k, v in image_channels.items():
             gdal.BuildVRT(os.path.join(
                 data_path, f"test_{k}.vrt"), v, options=vrt_opt)

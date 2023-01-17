@@ -74,13 +74,13 @@ def train_model(created_datasets_dirs, input_generator_config, checkpoint_name, 
 
     checkpoint_iou_cb = keras.callbacks.ModelCheckpoint(
         filepath=checkpoint_dir,
-        monitor="val_Iou_point_5",
+        monitor="val_IoU",
         mode='max',
         verbose=1,
         save_best_only=True)
 
     earlystop_iou_cb = keras.callbacks.EarlyStopping(
-        monitor="val_Iou_point_5",
+        monitor="val_IoU",
         min_delta=0,
         patience=15,
         verbose=1,
@@ -90,7 +90,7 @@ def train_model(created_datasets_dirs, input_generator_config, checkpoint_name, 
     )
 
     reduceLR_loss_cb = keras.callbacks.ReduceLROnPlateau(
-        monitor="val_Iou_point_5", factor=0.2, patience=6, verbose=0, min_delta=0)
+        monitor="val_IoU", factor=0.2, patience=6, verbose=0, min_delta=0)
 
     if(epochs == None):
         epochs = 100  # Max number of epochs

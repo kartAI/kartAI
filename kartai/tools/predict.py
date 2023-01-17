@@ -12,6 +12,7 @@ from PIL import Image
 from tensorflow import keras
 
 import env
+from kartai.datamodels_and_services.ImageSourceServices import Tile
 from kartai.exceptions import CheckpointNotFoundException, InvalidCheckpointException
 from kartai.utils.model_utils import get_ground_truth, load_checkpoint_model, _get_input_images, checkpoint_exist
 from kartai.tools.train import getOptimizer
@@ -33,7 +34,8 @@ def predict_and_evaluate(created_datasets_path, datagenerator_config, checkpoint
             'Failed to load checkpoint {checkpoint_to_predict_with}, most likely du to empty files and no saved weights')
 
     with open(os.path.join(created_datasets_path, f"{dataset_to_evaluate}_set.json"), "r") as file:
-        input_paths = json.load(file)
+        input_list_dataset_json = json.load(file)
+        input_paths = Tile.tileset_from_json(input_list_dataset_json)
 
     input_images = _get_input_images(
         input_paths, datagenerator_config)
@@ -44,13 +46,14 @@ def predict_and_evaluate(created_datasets_path, datagenerator_config, checkpoint
 
     opt = getOptimizer("RMSprop", False)
 
+    batch_size = 2 # 6
     model.compile(optimizer=opt, loss='binary_crossentropy',
                   metrics=[keras.metrics.BinaryAccuracy(), IoU, IoU_fz, Iou_point_5, Iou_point_6, Iou_point_7, Iou_point_8, Iou_point_9])
 
     # Evaluate model on test data
-    results = model.evaluate(input_images, input_labels, 6, return_dict=True)
+    results = model.evaluate(input_images, input_labels, batch_size, return_dict=True)
     # Predict test data from model
-    predictions = model.predict(input_images, 6)
+    predictions = model.predict(input_images, batch_size)
 
     output_dir = os.path.join(env.get_env_variable(
         'prediction_results_directory'), checkpoint_name_to_predict_with)
@@ -93,18 +96,18 @@ def savePredictedImages(test_pred, test_input_list, output_test_dir, suffix):
     # Export test data as geotiff
     file_list = []
     for i in range(len(test_pred)):
-        input_img_name = Path(test_input_list[i]['image']).stem
-        test_sample = gdal.Open(test_input_list[i]['image'])
+        input_img_name = Path(test_input_list[i]['image'].file_path).stem
+        # test_sample = gdal.Open(test_input_list[i]['image'])
         predict_fn = input_img_name + suffix
         predict_fn = os.path.join(output_test_dir, predict_fn)
         file_list.append(os.path.abspath(predict_fn))
         ds = gdal.GetDriverByName('GTiff').Create(predict_fn,
                                                   test_pred.shape[1], test_pred.shape[2], 1, gdal.GDT_Float32,
                                                   ['COMPRESS=LZW', 'PREDICTOR=2'])
-        tranformation = test_sample.GetGeoTransform()
+        tranformation = test_input_list[i]['image'].geo_transform
         ds.SetGeoTransform(tranformation)
         try:
-            projection = test_sample.GetProjection()
+            projection = test_input_list[i]['image'].srs_wkt
         except:
             # Temp error fix due to proj library error
             print("proj error getting projection - fallback to epsg:25832")
