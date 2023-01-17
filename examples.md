@@ -204,3 +204,15 @@ init checkpoint: full_analysis_unet_data_teacher_init
 Existing datasets:
 
 - ksand_with_hoyde
+
+
+
+
+Demo:
+
+./kai create_training_data -n small_test_area -c config/dataset/bygg.json --region training_data/regions/small_building_region.json
+./kai train -dn small_test_area -m unet -cn test_small_area_unet -c config/ml_input_generator/ortofoto.json
+
+
+Nedlasting
+./kai download_models

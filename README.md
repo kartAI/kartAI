@@ -19,6 +19,8 @@ The repository allows you to easily create training data for any sort of vector 
   - [Upload model](#upload-model)
 - [Training data](#training-data)
   - [Dataset config file](#dataset-config-file)
+    - [Tile grid](#tile-grid)
+    - [Image Sources](#image-sources)
   - [Create Training Data Script](#create-training-data-script)
   - [Data teacher](#data-teacher)
 - [Train](#train)
@@ -108,7 +110,7 @@ Dataset is automatically created based on the given data sources defined in the 
 ### Dataset config file
 
 The dataset config file (used in the -c argument to create_training_data) is a json file describing the datasets
-used for training / validataion / test. It has three main sections: `"TileGrid"`, `"ImageSources"` and the
+used for training / validation / test. It has three main sections: `"TileGrid"`, `"ImageSources"` and the
 image sets.
 
 Main structure:
@@ -141,6 +143,8 @@ Main structure:
 }
 ```
 
+#### Tile grid
+
 The TileGrid defines the grid structure for the image tiles.
 
 ```json
@@ -155,6 +159,8 @@ The TileGrid defines the grid structure for the image tiles.
 
 All image tiles will be in the spatial reference system given by `"srid"`. The tiles will be of size `dx * dy`, with
 tile `(0, 0)` having the lower left corner at `(x0, y0)`, tile `(1, 0)` at `(x0 + dx, y0)` etc...
+
+#### Image Sources
 
 The ImageSources is a list of image sources: database layers, WMS/WCS services, file layers (shape, geojson, ...)
 
