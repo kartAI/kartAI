@@ -1,0 +1,54 @@
+{
+  "TileGrid": {
+    "srid": 25832,
+    "x0": 563000.0,
+    "y0": 6623000.0,
+    "dx": 100.0,
+    "dy": 100.0
+  },
+  "ImageSources": [
+    {
+      "name": "OrtofotoWMS",
+      "type": "WMSImageSource",
+      "image_format": "image/tiff",
+      "url": "https://waapi.webatlas.no/wms-orto/",
+      "api_key": "NK_WMS_API_KEY",
+      "layers": ["ortofoto"],
+      "styles": ["new_up"]
+    },
+    {
+      "srid": 25832,
+      "name": "AzureByggDb",
+      "type": "PostgresImageSource",
+      "host": "postgresql-dev-kartai.postgres.database.azure.com",
+      "port": "5432",
+      "database": "kartai",
+      "user": "psqladmin@postgresql-dev-kartai",
+      "passwd": "AZURE_BYGG_POSTGRESQL_PSW",
+      "image_format": "image/tiff",
+      "table": "20210903_fkb.datastore"
+    }
+  ],
+  "ImageSets": [
+    {
+      "name": "image",
+      "source": "OrtofotoWMS",
+      "tile_size": 512
+    },
+    {
+      "name": "label",
+      "source": "AzureByggDb",
+      "tile_size": 512,
+      "rules": [
+        {
+          "type": "PixelValueAreaFraction",
+          "values": [1],
+          "more_than": 0.05
+        }
+      ]
+    }
+  ],
+  "ProjectArguments": {
+    "shuffle_data": "True"
+  }
+}

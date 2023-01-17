@@ -1,0 +1,81 @@
+{
+  "TileGrid": {
+    "srid": 25832,
+    "x0": 563000.0,
+    "y0": 6623000.0,
+    "dx": 100.0,
+    "dy": 100.0
+  },
+  "ImageSources": [
+    {
+      "name": "OrtofotoWMS",
+      "type": "WMSImageSource",
+      "image_format": "image/tiff",
+      "url": "https://waapi.webatlas.no/wms-orto/",
+      "api_key": "NK_WMS_API_KEY",
+      "layers": ["ortofoto"],
+      "styles": ["new_up"]
+    },
+    {
+      "name": "AR5db",
+      "type": "PostgresImageSource",
+      "host": "192.168.4.127",
+      "port": "5432",
+      "database": "datavarehus",
+      "user": "datavarehus_ro",
+      "passwd": "NK_POSTGRESQL_PWD",
+      "table": "fkb.v_kommunene_104_arealressursflate",
+      "attribute_filter": [
+        "artype >= 10 and artype < 12",
+        "artype =  12",
+        "artype >= 80 and artype < 89",
+        "artype =  50 and argrunnf > 45",
+        "artype =  70",
+        "artype =  60",
+        "artype =  50 and argrunnf = 42",
+        "artype =  50 and argrunnf = 41",
+        "artype >= 20 and artype < 30",
+        "artype =  50 and argrunnf >= 43 and argrunnf <= 45",
+        "artype =  30 and artreslag >= 33",
+        "artype =  30 and artreslag =  32",
+        "artype =  30 and artreslag =  31",
+        "artype >= 90"
+      ],
+      "image_format": "image/tiff"
+    }
+  ],
+  "ImageSets": [
+    {
+      "name": "image",
+      "source": "OrtofotoWMS",
+      "tile_size": 512
+    },
+    {
+      "name": "label",
+      "source": "AR5db",
+      "tile_size": 512,
+      "rules": [
+        {
+          "type": "Or",
+          "rules": [
+            {
+              "type": "PixelValueAreaFraction",
+              "values": [1],
+              "more_than": 0.03
+            },
+            {
+              "type": "PixelValueAreaFraction",
+              "values": [2],
+              "more_than": 0.03
+            }
+          ]
+        },
+        {
+          "type": "PixelValueAreaFraction",
+          "values": [11, 12, 13],
+          "less_than": 0.5
+        }
+      ]
+    }
+  ]
+}

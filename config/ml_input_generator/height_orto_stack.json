@@ -1,0 +1,8 @@
+{
+  "model_input_stack": [
+    { "name": "image", "dimensions": [512, 512, 3] },
+    { "name": "lidar", "dimensions": [512, 512, 1] }
+  ],
+  "model_input_tuple": [],
+  "ground_truth": { "name": "label", "dimensions": [512, 512, 1] }
+}

@@ -1,0 +1,93 @@
+{
+  "TileGrid": {
+    "srid": 25832,
+    "x0": 563000.0,
+    "y0": 6623000.0,
+    "dx": 100.0,
+    "dy": 100.0
+  },
+  "ImageSources": [
+    {
+      "name": "OrtofotoWMS",
+      "type": "WMSImageSource",
+      "image_format": "image/tiff",
+      "url": "https://waapi.webatlas.no/wms-orto/",
+      "api_key": "NK_WMS_API_KEY",
+      "layers": ["ortofoto"],
+      "styles": ["new_up"]
+    },
+    {
+      "name": "EnkeltTreeDb",
+      "type": "PostgresImageSource",
+      "host": "192.168.34.96",
+      "port": "5432",
+      "database": "norge",
+      "user": "rune_ro",
+      "passwd": "NK_POSTGRESQL_PWD",
+      "image_format": "image/tiff",
+      "table": "fkb.v_kommunene_104_innmaalttre"
+    },
+    {
+      "name": "SkogDb",
+      "type": "PostgresImageSource",
+      "host": "192.168.34.96",
+      "port": "5432",
+      "database": "norge",
+      "user": "rune_ro",
+      "passwd": "NK_POSTGRESQL_PWD",
+      "image_format": "image/tiff",
+      "table": "fkb.v_kommunene_104_arealressursflate",
+      "attribute_filter": [
+        [2, "artreslag >= 31 and artreslag <= 35 and arskogbon = 11"],
+        [4, "artreslag >= 31 and artreslag <= 35 and arskogbon = 12"],
+        [5, "artreslag >= 31 and artreslag <= 35 and arskogbon = 17"],
+        [6, "artreslag >= 31 and artreslag <= 35 and arskogbon = 13"],
+        [8, "artreslag >= 31 and artreslag <= 35 and arskogbon = 18"],
+        [8, "artreslag >= 31 and artreslag <= 35 and arskogbon = 14"],
+        [10, "artreslag >= 31 and artreslag <= 35 and arskogbon = 15"]
+      ]
+    },
+    {
+      "name": "ComTreeDb",
+      "type": "CompositeImageSource",
+      "image_format": "image/tiff",
+      "composition": {
+        "or": [
+          {
+            "clip": {
+              "convolution": {
+                "source": "EnkeltTreeDb",
+                "radius": 12.0
+              },
+              "min": 0,
+              "max": 1
+            }
+          },
+          {
+            "source": "SkogDb",
+            "scale": 0.1
+          }
+        ]
+      }
+    }
+  ],
+  "ImageSets": [
+    {
+      "name": "image",
+      "source": "OrtofotoWMS",
+      "tile_size": 512
+    },
+    {
+      "name": "label",
+      "source": "ComTreeDb",
+      "tile_size": 512,
+      "rules": [
+        {
+          "type": "PixelValueAreaFraction",
+          "values": [1],
+          "more_than": 0.05
+        }
+      ]
+    }
+  ]
+}

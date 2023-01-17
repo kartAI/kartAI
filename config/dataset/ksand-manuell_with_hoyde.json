@@ -1,0 +1,171 @@
+{
+  "TileGrid": {
+    "srid": 25832,
+    "x0": 410000.0,
+    "y0": 6420000.0,
+    "dx": 100.0,
+    "dy": 100.0
+  },
+  "ImageSources": [
+    {
+      "name": "Ortofoto_ksand_manuell_train",
+      "type": "ImageFileImageSource",
+      "image_format": "image/tiff",
+      "file_path": "training_data/AP2_T2_geodata/Treningsområde/ortofoto/treningsomrade.tif"
+    },
+    {
+      "name": "Bygg_ksand_manuell_train",
+      "type": "VectorFileImageSource",
+      "image_format": "image/tiff",
+      "file_path": "training_data/AP2_T2_geodata/Treningsområde/shape/bygning.shp",
+      "srid": 25832
+    },
+    {
+      "name": "Ortofoto_ksand_manuell_valid",
+      "type": "ImageFileImageSource",
+      "image_format": "image/tiff",
+      "file_path": "training_data/AP2_T2_geodata/Valideringsområde/ortofoto/valideringsomrade.tif"
+    },
+    {
+      "name": "Bygg_ksand_manuell_valid",
+      "type": "VectorFileImageSource",
+      "image_format": "image/tiff",
+      "file_path": "training_data/AP2_T2_geodata/Valideringsområde/shape/bygning.shp",
+      "srid": 25832
+    },
+    {
+      "name": "Ortofoto_ksand_manuell_prosjekt",
+      "type": "ImageFileImageSource",
+      "image_format": "image/tiff",
+      "file_path": "training_data/AP2_T2_geodata/Prosjektområde/ortofoto/prosjektomrade.tif"
+    },
+    {
+      "name": "Bygg_ksand_manuell_prosjekt",
+      "type": "VectorFileImageSource",
+      "image_format": "image/tiff",
+      "file_path": "training_data/AP2_T2_geodata/Prosjektområde/shape/bygning.shp",
+      "srid": 25832
+    },
+    {
+      "name": "LaserWCSdtm",
+      "type": "WCSImageSource",
+      "coverage": "dtm_25832",
+      "image_format": "GeoTiff",
+      "url": "https://wcs.geonorge.no/skwms1/wcs.hoyde-dtm-nhm-25832"
+    },
+    {
+      "name": "LaserWCSdom",
+      "type": "WCSImageSource",
+      "coverage": "dom_25832",
+      "image_format": "GeoTiff",
+      "url": "https://wcs.geonorge.no/skwms1/wcs.hoyde-dom-nhm-25832"
+    },
+    {
+      "name": "DomMinusDtm",
+      "type": "CompositeImageSource",
+      "image_format": "image/tiff",
+      "composition": {
+        "add": [
+          { "source": "LaserWCSdom" },
+          { "scale": -1, "source": "LaserWCSdtm" }
+        ]
+      }
+    }
+  ],
+  "TrainingSet": {
+    "ProjectArea": {
+      "x_min": 443900.0,
+      "y_min": 6444300.0,
+      "x_max": 445700.0,
+      "y_max": 6447400.0
+    },
+    "ImageSets": [
+      {
+        "name": "image",
+        "source": "Ortofoto_ksand_manuell_train",
+        "tile_size": 512
+      },
+      {
+        "name": "lidar",
+        "source": "DomMinusDtm",
+        "tile_size": 512
+      },
+      {
+        "name": "label",
+        "source": "Bygg_ksand_manuell_train",
+        "tile_size": 512,
+        "rules": [
+          {
+            "type": "PixelValueAreaFraction",
+            "values": [1],
+            "more_than": 0.0001
+          }
+        ]
+      }
+    ]
+  },
+  "ValidationSet": {
+    "ProjectArea": {
+      "x_min": 437300.0,
+      "y_min": 6442000.0,
+      "x_max": 438500.0,
+      "y_max": 6443500.0
+    },
+    "ImageSets": [
+      {
+        "name": "image",
+        "source": "Ortofoto_ksand_manuell_valid",
+        "tile_size": 512
+      },
+      {
+        "name": "lidar",
+        "source": "DomMinusDtm",
+        "tile_size": 512
+      },
+      {
+        "name": "label",
+        "source": "Bygg_ksand_manuell_valid",
+        "tile_size": 512,
+        "rules": [
+          {
+            "type": "PixelValueAreaFraction",
+            "values": [1],
+            "more_than": 0.0001
+          }
+        ]
+      }
+    ]
+  },
+  "TestSet": {
+    "ProjectArea": {
+      "x_min": 437800.0,
+      "y_min": 6442200.0,
+      "x_max": 438700.0,
+      "y_max": 6443100.0
+    },
+    "ImageSets": [
+      {
+        "name": "image",
+        "source": "Ortofoto_ksand_manuell_prosjekt",
+        "tile_size": 512
+      },
+      {
+        "name": "lidar",
+        "source": "DomMinusDtm",
+        "tile_size": 512
+      },
+      {
+        "name": "label",
+        "source": "Bygg_ksand_manuell_prosjekt",
+        "tile_size": 512,
+        "rules": [
+          {
+            "type": "PixelValueAreaFraction",
+            "values": [1],
+            "more_than": 0.0001
+          }
+        ]
+      }
+    ]
+  }
+}
