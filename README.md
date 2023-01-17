@@ -247,13 +247,17 @@ Arguments:
 
 Example:
 
-Unix:
+**Unix:**
 
-`./kai create_training_data -n medium_area -c config/dataset/bygg.json --x_min 618296.0 --y_min 6668145.0 --x_max 623495.0 --y_max 6672133.0`
+With bbox: `./kai create_training_data -n medium_area -c config/dataset/bygg.json --x_min 618296.0 --y_min 6668145.0 --x_max 623495.0 --y_max 6672133.0`
 
-Windows:
+With region: `./kai create_training_data -n small_test_area -c config/dataset/bygg.json --region training_data/regions/small_building_region.json`
 
-`kai.bat dataset/create_training_data -n medium_area -c config/dataset/bygg.json --x_min 618296.0 --y_min 6668145.0 --x_max 623495.0 --y_max 6672133.0`
+**Windows:**
+
+With bbox: `kai.bat dataset/create_training_data -n medium_area -c config/dataset/bygg.json --x_min 618296.0 --y_min 6668145.0 --x_max 623495.0 --y_max 6672133.0`
+
+With region: `kai.bat create_training_data -n small_test_area -c config/dataset/bygg.json --region training_data/regions/small_building_region.json`
 
 ## Data teacher
 
