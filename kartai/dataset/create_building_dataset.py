@@ -17,6 +17,7 @@ import rasterio.features
 import rasterio.merge
 
 from rasterstats import zonal_stats
+from kartai.datamodels_and_services.ImageSourceServices import Tile
 from kartai.utils.crs_utils import get_defined_crs_from_config, get_defined_crs_from_config_path
 
 from kartai.utils.dataset_utils import get_X_tuple
@@ -123,8 +124,7 @@ def run_ml_predictions(checkpoint_name, output_dir, output_predictions_name=defa
     model = keras.models.load_model(
         checkpoint_path, custom_objects=dependencies)
 
-    # Read file with references to created ortofoto images that should be analysed
-
+    # Read file with references to created ortofoto images that should be analyzed
     # Prediction data is without height info, therefor crashes
 
     if(not dataset_path_to_predict):
@@ -132,7 +132,7 @@ def run_ml_predictions(checkpoint_name, output_dir, output_predictions_name=defa
             'created_datasets_directory'), 'prediction_set.json')
 
     with open(dataset_path_to_predict) as f:
-        prediction_input_list = json.load(f)
+        prediction_input_list = Tile.tileset_from_json(json.load(f))
 
     if not tupple_data:
         if("image" in prediction_input_list[0] and "lidar" in prediction_input_list[0]):
@@ -178,10 +178,11 @@ def run_ml_predictions(checkpoint_name, output_dir, output_predictions_name=defa
             for i_batch in range(len(input_batch)):
                 # Open image
                 print('open image', input_batch[i_batch])
-                image = np.array(Image.open(input_batch[i_batch]['image']))
+                gdal_image = input_batch[i_batch]['image'].array
+                image = gdal_image.transpose((1, 2, 0))
                 if('lidar' in input_batch[i_batch]):
-                    lidar = np.array(Image.open(
-                        input_batch[i_batch]['lidar'])).reshape(512, 512, 1)
+                    lidar = input_batch[i_batch]['lidar'].array.reshape(
+                        512, 512, 1)
                     combined_arr = np.concatenate((image, lidar), axis=2)
                     images_to_predict[i_batch, ] = combined_arr
                 else:

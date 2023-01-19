@@ -23,7 +23,7 @@
       "port": "5432",
       "database": "datavarehus",
       "user": "datavarehus_ro",
-      "passwd": "NK_POSTGRESQL_PWD",
+      "passwd": "",
       "table": "fkb.v_kommunene_104_arealressursflate",
       "attribute_filter": [
         "artype >= 10 and artype < 12",

@@ -5,7 +5,7 @@ import os
 import sys
 from pathlib import Path
 
-# from azure import blobstorage
+from azure import blobstorage
 from tensorflow import keras
 
 import env
