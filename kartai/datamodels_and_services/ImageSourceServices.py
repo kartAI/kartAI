@@ -10,8 +10,8 @@ import math
 import scipy as sp
 import env
 
-ogr.UseExceptions()
-gdal.UseExceptions()
+# ogr.UseExceptions()
+# gdal.UseExceptions()
 
 
 class TileGrid:
@@ -167,8 +167,8 @@ class Tile:
         tileset = []
         image_sources = {}
         tile_grid = TileGrid(jn["TileGrid"]["srid"],
-                        jn["TileGrid"]["x0"], jn["TileGrid"]["y0"],
-                        jn["TileGrid"]["dx"], jn["TileGrid"]["dy"])
+                             jn["TileGrid"]["x0"], jn["TileGrid"]["y0"],
+                             jn["TileGrid"]["dx"], jn["TileGrid"]["dy"])
 
         for source_config in jn["ImageSources"]:
             source = ImageSourceFactory.create(
@@ -198,10 +198,8 @@ class Tile:
             self._srs_wkt = data_source.GetSpatialRef().ExportToWkt()
             self._array = data_source.ReadAsArray()
         else:
-            # *img_geom, = self._image_source.tile_grid.image_geom(self._i, self._j)
             self._array, self._srs_wkt, self._geo_transform = \
                 self._image_source.load_tile(self._i, self._j, self._tile_size)
-            # self._image_source.load_image(file_path, *img_geom, self._tile_size)
             if self._image_source.cache_root is not None and not os.path.exists(file_path):
                 self._save()
 
@@ -361,7 +359,7 @@ class WMSImageSource(ImageSource):
                     shutil.copyfileobj(req.raw, out_file)
 
                 data_source = gdal.Open(image_path)
-                return data_source.GetGeoTransform(), data_source.GetSpatialRef().ExportToWkt(), data_source.ReadAsArray()
+                return data_source.ReadAsArray(), data_source.GetSpatialRef().ExportToWkt(), data_source.GetGeoTransform()
 
             else:
                 # If no image, print error to stdout
@@ -371,7 +369,7 @@ class WMSImageSource(ImageSource):
         # Use existing
         elif req.status_code == 304:
             data_source = gdal.Open(image_path)
-            return data_source.GetGeoTransform(), data_source.GetSpatialRef().ExportToWkt(), data_source.ReadAsArray()
+            return data_source.ReadAsArray(), data_source.GetSpatialRef().ExportToWkt(), data_source.GetGeoTransform() 
 
         # Handle error
         else:
@@ -465,7 +463,8 @@ class OGRImageSource(ImageSource):
         self.attribute_filter_json = layer_spec["attribute_filter"] if "attribute_filter" in layer_spec else None
         if self.attribute_filter_json:
             if isinstance(self.attribute_filter_json, (list, tuple)):
-                self.attribute_filter = [af for af in self.attribute_filter_json]
+                self.attribute_filter = [
+                    af for af in self.attribute_filter_json]
             else:
                 self.attribute_filter = [self.attribute_filter_json]
         else:
@@ -554,7 +553,8 @@ class PostgresImageSource(OGRImageSource):
         if "sql" in self.layer_spec:
             self.layer = self.data_source.ExecuteSQL(self.layer_spec["sql"])
         elif "table" in self.layer_spec:
-            self.layer = self.data_source.GetLayerByName(self.layer_spec["table"])
+            self.layer = self.data_source.GetLayerByName(
+                self.layer_spec["table"])
         if not self.layer:
             raise ValueError("No layer?")
 
@@ -568,7 +568,8 @@ class VectorFileImageSource(OGRImageSource):
     def open(self):
         self.data_source = ogr.Open(self.layer_spec["file_path"])
         if "layer" in self.layer_spec:
-            self.layer = self.data_source.GetLayerByName(self.layer_spec["layer"])
+            self.layer = self.data_source.GetLayerByName(
+                self.layer_spec["layer"])
         else:
             self.layer = self.data_source.GetLayerByIndex()
 
@@ -605,6 +606,7 @@ class ImageFileImageSource(ImageSource):
                             self.data_source.GetSpatialRef().ExportToWkt(), srs_wkt, gdal.GRA_Bilinear)
 
         return target_ds.ReadAsArray(), srs_wkt, geo_transform
+
 
 class Composition:
     """Create an image from operations on other images"""
@@ -768,7 +770,8 @@ class CompositeImageSource(ImageSource):
     def __init__(self, cache_root, tile_grid, layer_spec, image_sources):
         super().__init__(cache_root, tile_grid, layer_spec)
 
-        self.composition = Composition.create(layer_spec["composition"], image_sources)
+        self.composition = Composition.create(
+            layer_spec["composition"], image_sources)
 
     def load_tile(self, i, j, tile_size):
         """Find an image with tile grid indices i, j and return the cached image path.
@@ -776,7 +779,8 @@ class CompositeImageSource(ImageSource):
               image is loaded at the given file path address"""
 
         if self.cache_root is None:
-            arr, srs_wkt, geo_transform =  self.composition.get_tile(i, j, tile_size)
+            arr, srs_wkt, geo_transform = self.composition.get_tile(
+                i, j, tile_size)
         else:
             img_path = self.image_path(i, j, tile_size)
             if os.path.exists(img_path):
@@ -786,7 +790,8 @@ class CompositeImageSource(ImageSource):
                 arr = data_source.ReadAsArray()
             else:
                 os.makedirs(os.path.dirname(img_path), exist_ok=True)
-                arr, srs_wkt, geo_transform = self.composition.get_tile(i, j, tile_size)
+                arr, srs_wkt, geo_transform = self.composition.get_tile(
+                    i, j, tile_size)
         return arr, srs_wkt, geo_transform
 
     def _find_dependent_sources(self, cmp):

@@ -225,3 +225,5 @@ Result table:
 Produce vector data:
 
 ./kai create_predicted_buildings_dataset -n arendal_xl_resnet_mish --region training_data/regions/ArendalBorderCropped.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -an arendal
+
+./kai create_predicted_buildings_dataset -n test-region_xl_resnet_mish_2 --region training_data/regions/small_test_region.json -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -an small-test-region

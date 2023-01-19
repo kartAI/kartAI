@@ -23,7 +23,7 @@
       "port": "5432",
       "database": "norge",
       "user": "rune_ro",
-      "passwd": "NK_POSTGRESQL_PWD",
+      "passwd": "",
       "image_format": "image/tiff",
       "table": "fkb.v_kommunene_104_innmaalttre"
     },
@@ -34,7 +34,7 @@
       "port": "5432",
       "database": "norge",
       "user": "rune_ro",
-      "passwd": "NK_POSTGRESQL_PWD",
+      "passwd": "",
       "image_format": "image/tiff",
       "table": "fkb.v_kommunene_104_arealressursflate",
       "attribute_filter": [
