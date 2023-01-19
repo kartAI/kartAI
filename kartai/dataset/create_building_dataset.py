@@ -101,8 +101,8 @@ def run_ml_predictions(checkpoint_name, output_dir, output_predictions_name=defa
                                         Iou_point_7, Iou_point_8, Iou_point_9)
 
     # Create ortofoto tiles for bbox area
-    #if skip_data_fetching == False:
-        #fetch_data_to_predict(geom, config_path)
+    if skip_data_fetching == False:
+        fetch_data_to_predict(geom, config_path)
 
     checkpoint_path = os.path.join(env.get_env_variable(
         'trained_models_directory'), checkpoint_name+".h5")
