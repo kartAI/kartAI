@@ -1,6 +1,6 @@
 # KartAI
 
-KartAi is a research project with the objective to use AI to improve the map data for buildings in norway.
+[KartAi](https://kartai.no/) is a research project with the objective to use AI to improve the map data for buildings in Norway.
 
 This repository is intended for people contributing and working on the KartAi project, and in order to use the scripts you need access to both image data sources and azure resources.
 
