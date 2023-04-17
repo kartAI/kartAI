@@ -221,8 +221,9 @@ class DatasetBuilder:
                         f"\nAdded to dataset, total instances: {number_of_examples} of {max_size}")
                     if eager_load:
                         for k, v in example.items():
-                            if not v.array:
-                                raise ValueError(f"Component {k} not loaded in example {number_of_examples}")
+                            if not v.array.any():
+                                raise ValueError(
+                                    f"Component {k} not loaded in example {number_of_examples}")
 
                     yield example
                 else:

@@ -66,7 +66,7 @@ def validate_existing_paths(args):
     args_obj = vars(args)
 
     for param in path_params:
-        if(param in args_obj and not os.path.exists(args_obj[param])):
+        if(param in args_obj and args_obj[param] and not os.path.exists(args_obj[param])):
             raise Exception(f"{param} does not exist in path", args_obj[param])
 
 

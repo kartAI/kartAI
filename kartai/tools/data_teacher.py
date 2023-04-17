@@ -2,8 +2,6 @@ import argparse
 import datetime
 import json
 import os
-import sys
-import time
 from pathlib import Path
 
 import numpy as np
@@ -15,7 +13,7 @@ from kartai.models import segmentation_models
 from kartai.tools.create_training_data import create_training_data
 from kartai.tools.predict import predict_and_evaluate
 from kartai.tools.train import create_metadata_file, train_model
-from kartai.utils.train_utils import check_for_existing_model, get_dataset_dirs
+from kartai.utils.train_utils import check_for_existing_model
 
 
 def _train_model(checkpoint_name, created_datasets_dirs, dataset_names, input_generator_config, input_generator_config_path, train_args):
@@ -30,7 +28,7 @@ def _train_model(checkpoint_name, created_datasets_dirs, dataset_names, input_ge
 
 def generate_low_confidence_training_datasets(dataset_name, config_file_path, region, confidence_threshold, eval_model_checkpoint):
     # run create dataset
-    return create_training_data(dataset_name, config_file_path, confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint, region=region)
+    return create_training_data(dataset_name, config_file_path, eager_load=False, confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint, region=region)
 
 
 def evaluate_model(checkpoint_name, evaluation_dataset_path, datagenerator_config):

@@ -16,7 +16,7 @@ def fetch_data_to_predict(geom, config_path):
     training_dataset_dir = env.get_env_variable("cached_data_directory")
 
     image_sources, train_set, valid_set, test_set = getImageSources(
-        config, training_dataset_dir, tile_grid)
+        config, training_dataset_dir, tile_grid, eager_load=True)
 
     image_sets = getImageSets(
         config, image_sources)
@@ -24,10 +24,10 @@ def fetch_data_to_predict(geom, config_path):
     dataset_builder = DatasetBuilder(image_sets)
     if("ProjectArguments" in config):
         dataset = list(dataset_builder.assemble_data(
-            Region(geom), config["ImageSources"], project_config=config["ProjectArguments"]))
+            Region(geom), config["ImageSources"], project_config=config["ProjectArguments"]), eager_load=True)
     else:
         dataset = list(dataset_builder.assemble_data(
-            Region(geom), config["ImageSources"]))
+            Region(geom), config["ImageSources"]), eager_load=True)
 
     # Save file image references
     data_path = env.get_env_variable('created_datasets_directory')

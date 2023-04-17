@@ -190,7 +190,7 @@ def run_ksand_tests(models, crs):
 def create_ksand_validaton_dataset(ksand_dataset_name):
     config_path = 'config/dataset/ksand-manuell.json'
     create_training_data(ksand_dataset_name,
-                         config_path,  x_min=437300, x_max=445700, y_min=6442000, y_max=6447400)
+                         config_path, eager_load=True, x_min=437300, x_max=445700, y_min=6442000, y_max=6447400)
 
 
 def has_run_performance_check(model_name):

@@ -235,8 +235,10 @@ Example of project arguments, that will affect production of the dataset.
 
 Once a dataset is created there will be several files generated.
 Labels area created and saved to `training_data/AzureByggDb/{tilegrid}/{tilesize}`.
-However, the WMSImageSource are not created yet, only information about how the can be downloaded. The actual data is downloaded once you start training a model with the given dataset.
 
+Default behavouir when creating a dataset is that we "lazy load" our data. This means that instead of donwloading the actual images, we instead save the url for fetching the data in the output data files. The actual data is downloaded once you start training a model with the given dataset.
+
+If you instead want the skip this lazy loading, and download the data immediately, you can pass `-eager True` to the script.
 
 ### Create Training Data Script
 
@@ -246,6 +248,7 @@ Arguments:
 | -------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | -n       | what to name the dataset                                                                                                                                                                         |
 | -c       | path to config file                                                                                                                                                                              |
+| -eager       | Choose to download created data immediately, and not just the reference to the data (which is usually downloaded the first time the data needs to be used - our so called lazy loading)  file                                                                                                                                                                              |
 | --region | Polygon or multipolygon describing data area with coordinates in same system as defined in config (i.e EPSG:25832), WKT or geojson (geometry) format, directly in a text string or as a filename |
 | --x_min  | x_min for bbox, alternative to --region                                                                                                                                                          |
 | --y_min  | y_min for bbox, alternative to --region                                                                                                                                                          |
