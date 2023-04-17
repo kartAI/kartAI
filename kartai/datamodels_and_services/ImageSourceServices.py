@@ -590,6 +590,8 @@ class ImageFileImageSource(ImageSource):
     def load_image(self, image_path, minx, miny, maxx, maxy, tile_size):
         """Load or generate an image with the geometry given by
         minx, miny, maxx, maxy, srid, tile_size from the image source and store into the image_path"""
+        os.makedirs(os.path.dirname(image_path), exist_ok = True)
+        
         target_ds = gdal.GetDriverByName('GTiff').Create(
             str(image_path),
             tile_size, tile_size, self.data_source.RasterCount, gdal.GDT_Byte,

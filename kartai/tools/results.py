@@ -135,11 +135,11 @@ def get_ksand_dataset_name_and_path(model_name):
     return ksand_dataset_name, ksand_dataset_path, tupple_data
 
 
-def run_ksand_tests(models):
+def run_ksand_tests(models, crs):
     # Create performance-metadata file for each performance test
 
     output_predictions_name = "_prediction.tif"
-    #performance_metafiles = download_all_ksand_performance_meta_files()
+    performance_metafiles = download_all_ksand_performance_meta_files()
     predictions_output_dir = get_predictions_output_dir()
 
     for model in models:
@@ -164,7 +164,7 @@ def run_ksand_tests(models):
             glob.glob(predictions_output_dir+f"/*{output_predictions_name}"))
 
         prediction_dataset_gdf = get_all_predicted_buildings_dataset(
-            predictions_path)
+            predictions_path, crs)
 
         IoU_ksand = get_IoU_for_ksand(prediction_dataset_gdf)
 
@@ -268,10 +268,17 @@ def empty_folder(folder):
 
 def main(args):
 
-    models = download_all_models()
+    kai_models = download_all_models()
 
+    #Manually adding stream models - have not implemented full support for displaying results for both types
+    kai_stream_models = ["4-multiplex-resnet-norway"]
+
+    models = kai_models + kai_stream_models
+  
+
+    crs = "EPSG:25832"
     if args.ksand == True:
-        run_ksand_tests(models)
+        run_ksand_tests(models, crs)
     elif args.preview == True:
         create_ksand_dataframe_result(models)
     else:

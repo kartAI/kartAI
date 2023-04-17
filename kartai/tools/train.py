@@ -16,9 +16,7 @@ from kartai.metrics.meanIoU import (Iou_point_5, Iou_point_6, Iou_point_7,
 from kartai.models import segmentation_models
 from kartai.utils.train_utils import check_for_existing_model, get_dataset_dirs, get_existing_model_names
 
-''' Start training with a selected model and dataset
-    For now only running u-net, but in the future we should instead pass input to define the model and dataset once running the script
-'''
+''' Start training with a selected model and dataset'''
 
 
 def train_model(created_datasets_dirs, input_generator_config, checkpoint_name, model_name, features, depth, activation_name, batch_size, epochs, optimizer, loss_function, checkpoint_to_finetune_from=False):

@@ -63,6 +63,8 @@ def create_building_dataset(geom, checkpoint_name, area_name, data_config_path, 
 
     print('Starting postprocess')
 
+    #TODO: testing
+    exit()
     produce_resulting_datasets(
         output_dir, config, max_mosaic_batch_size, only_raw_predictions, f"{area_name}_{checkpoint_name}", save_to)
 
@@ -102,14 +104,20 @@ def run_ml_predictions(checkpoint_name, output_dir, output_predictions_name=defa
 
     # Create ortofoto tiles for bbox area
     if skip_data_fetching == False:
-        fetch_data_to_predict(geom, config_path)
+        #TODO: temp
+        print("Skipping data fetching")
+        #fetch_data_to_predict(geom, config_path)
 
     checkpoint_path = os.path.join(env.get_env_variable(
-        'trained_models_directory'), checkpoint_name+".h5")
+        'trained_models_directory'), checkpoint_name)
 
-    if not os.path.isfile(checkpoint_path):
-        blobstorage.downloadModelFileFromAzure(
-            Path(checkpoint_name).stem)
+    if(not os.path.isdir(checkpoint_path)):
+        checkpoint_path = os.path.join(env.get_env_variable(
+            'trained_models_directory'), checkpoint_name+".h5")
+
+        if not os.path.isfile(checkpoint_path):
+            blobstorage.downloadModelFileFromAzure(
+                Path(checkpoint_name).stem)
 
     dependencies = {
         'BinaryFocalLoss': getLoss('focal_loss'),
@@ -150,11 +158,13 @@ def run_ml_predictions(checkpoint_name, output_dir, output_predictions_name=defa
         num_predictions//batch_size) + 1
 
     for i in range(splits):
+        #TODO: temp
+        if(i < 6750):
+            continue
         print(
             f'Run batch {i} of {splits}. Instances {batch_size*i} to {batch_size*i+batch_size}.')
         input_batch = prediction_input_list[batch_size *
                                             i:batch_size*i+batch_size]
-        print('batch', input_batch)
         # Generates stack of images as an array with shape (batch_size x height x length x channels)
         if tupple_data:
             input_tuples = []
@@ -176,9 +186,12 @@ def run_ml_predictions(checkpoint_name, output_dir, output_predictions_name=defa
             images_to_predict = np.empty(
                 (len(input_batch), img_dims[0], img_dims[1], img_dims[2]))
             for i_batch in range(len(input_batch)):
-                # Open image
-                print('open image', input_batch[i_batch])
+                # Open/download image and label
                 gdal_image = input_batch[i_batch]['image'].array
+                # Call code in order to download label which is needed later on
+                # TODO: acivate this when doing performance check
+                #label_image = input_batch[i_batch]['label'].array
+
                 image = gdal_image.transpose((1, 2, 0))
                 if('lidar' in input_batch[i_batch]):
                     lidar = input_batch[i_batch]['lidar'].array.reshape(
@@ -420,12 +433,15 @@ def get_new_buildings_dataset(all_predicted_buildings_dataset, labels_dataset):
     return new_buildings
 
 
-def get_labels_dataset(predictions_path, output_dir, config, crs):
+def get_labels_dataset(predictions_path, output_dir, config, crs, is_ksand_test=False):
     label_tiles = gp.GeoDataFrame()
 
+    # 'training_data/AzureByggDb/25832_563000.0_6623000.0_100.0_100.0/512/278_225.tif'
+    # skulle vært
+    # 'training_data/Bygg_ksand_manuell_prosjekt/25832_563000.0_6623000.0_100.0_100.0/512/278_225.tif'
     for prediction_path in predictions_path:
         label_path = get_label_for_prediction_path(
-            prediction_path,  output_dir, config)
+            prediction_path,  output_dir, config, is_ksand_test)
         label = rasterio.open(label_path)
         label_mask = label.read(1)
         label_polygons = polygonize_mask(label_mask, label, crs)
@@ -482,28 +498,31 @@ def get_valid_geoms(geoms):
     return geoms.geometry.buffer(0)
 
 
-def get_label_for_prediction_path(prediction_path, output_dir, config):
-    labels_folder = get_labels_folder(config)
+def get_label_for_prediction_path(prediction_path, output_dir, config, is_ksand_test=False):
+    labels_folder = get_labels_folder(config, is_ksand_test)
     label_path = prediction_path.replace('_'+output_prediction_suffix, "").replace(
         output_dir, labels_folder)
     return label_path
 
 
-def get_labels_folder(config):
+def get_labels_folder(config, is_ksand_test=False):
     tilegrid = config["TileGrid"]
     cache_folder_name = f"{tilegrid['srid']}_{tilegrid['x0']}_{tilegrid['y0']}_{tilegrid['dx']}_{tilegrid['dy']}"
-    labelSourceName = get_label_source_name(config)
+    labelSourceName = get_label_source_name(config, is_ksand_test)
 
     byggDb_path = os.path.join(env.get_env_variable(
         "cached_data_directory"), labelSourceName, cache_folder_name, "512")
     return byggDb_path
 
 
-def get_label_source_name(config):
+def get_label_source_name(config, is_ksand_test=False):
     labelSourceName = None
-    for source in config["ImageSources"]:
-        if(source["type"] == "PostgresImageSource"):
-            labelSourceName = source["name"]
+    if(is_ksand_test):
+        labelSourceName = "Bygg_ksand_manuell_prosjekt"
+    else:
+        for source in config["ImageSources"]:
+            if(source["type"] == "PostgresImageSource"):
+                labelSourceName = source["name"]
 
     if(not labelSourceName):
         raise Exception("Could not find PostgresImageSource in config")

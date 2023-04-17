@@ -63,14 +63,7 @@
       {
         "name": "label",
         "source": "Bygg_ksand_manuell_train",
-        "tile_size": 512,
-        "rules": [
-          {
-            "type": "PixelValueAreaFraction",
-            "values": [1],
-            "more_than": 0.0001
-          }
-        ]
+        "tile_size": 512
       }
     ]
   },
@@ -90,14 +83,7 @@
       {
         "name": "label",
         "source": "Bygg_ksand_manuell_valid",
-        "tile_size": 512,
-        "rules": [
-          {
-            "type": "PixelValueAreaFraction",
-            "values": [1],
-            "more_than": 0.0001
-          }
-        ]
+        "tile_size": 512
       }
     ]
   },
@@ -117,14 +103,7 @@
       {
         "name": "label",
         "source": "Bygg_ksand_manuell_prosjekt",
-        "tile_size": 512,
-        "rules": [
-          {
-            "type": "PixelValueAreaFraction",
-            "values": [1],
-            "more_than": 0.0001
-          }
-        ]
+        "tile_size": 512
       }
     ]
   }
