@@ -428,9 +428,6 @@ def get_new_buildings_dataset(all_predicted_buildings_dataset, labels_dataset):
 def get_labels_dataset(predictions_path, output_dir, config, crs, is_ksand_test=False):
     label_tiles = gp.GeoDataFrame()
 
-    # 'training_data/AzureByggDb/25832_563000.0_6623000.0_100.0_100.0/512/278_225.tif'
-    # skulle vært
-    # 'training_data/Bygg_ksand_manuell_prosjekt/25832_563000.0_6623000.0_100.0_100.0/512/278_225.tif'
     for prediction_path in predictions_path:
         label_path = get_label_for_prediction_path(
             prediction_path,  output_dir, config, is_ksand_test)
