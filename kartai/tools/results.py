@@ -55,10 +55,10 @@ def download_all_models():
 
 def create_ksand_dataframe_result(models):
     rows = []
-
     for model in models:
         model_name = Path(model).stem
         performance_metadata_path = get_ksand_performance_meta_path(model_name)
+
         if(not os.path.isfile(performance_metadata_path)):
             continue
         with open(performance_metadata_path) as f:
@@ -158,7 +158,7 @@ def run_ksand_tests(models, crs):
         # Clean current content of folder to make sure only current batch is in folder
         empty_folder(predictions_output_dir)
         run_ml_predictions(model_name, predictions_output_dir, output_predictions_name,
-                           skip_data_fetching=True, dataset_path_to_predict=ksand_dataset_path, tupple_data=tupple_data)
+                           skip_data_fetching=True, dataset_path_to_predict=ksand_dataset_path, tupple_data=tupple_data, download_labels=True)
 
         predictions_path = sorted(
             glob.glob(predictions_output_dir+f"/*{output_predictions_name}"))
@@ -270,11 +270,9 @@ def main(args):
 
     kai_models = download_all_models()
 
-    #Manually adding stream models - have not implemented full support for displaying results for both types
-    kai_stream_models = ["4-multiplex-resnet-norway"]
-
-    models = kai_models + kai_stream_models
-  
+    # For testing: Manually adding stream models - have not implemented full support for displaying results for both types
+    #kai_stream_models = ["10-multiplex-mish-resnet-norway"]
+    #models = kai_models + kai_stream_models
 
     crs = "EPSG:25832"
     if args.ksand == True:

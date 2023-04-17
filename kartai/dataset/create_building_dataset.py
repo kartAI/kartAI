@@ -4,7 +4,6 @@ import os
 import sys
 import time
 from pathlib import Path
-from PIL import Image
 import geopandas as gp
 import pandas as pd
 import numpy as np
@@ -63,8 +62,6 @@ def create_building_dataset(geom, checkpoint_name, area_name, data_config_path, 
 
     print('Starting postprocess')
 
-    #TODO: testing
-    exit()
     produce_resulting_datasets(
         output_dir, config, max_mosaic_batch_size, only_raw_predictions, f"{area_name}_{checkpoint_name}", save_to)
 
@@ -92,7 +89,7 @@ def save_dataset_to_azure(data, filename, modelname):
         modelname, filename, blob_service_client, data)
 
 
-def run_ml_predictions(checkpoint_name, output_dir, output_predictions_name=default_output_predictions_name, config_path=None, geom=None, skip_data_fetching=False, dataset_path_to_predict=None, tupple_data=False):
+def run_ml_predictions(checkpoint_name, output_dir, output_predictions_name=default_output_predictions_name, config_path=None, geom=None, skip_data_fetching=False, dataset_path_to_predict=None, tupple_data=False, download_labels=False):
     from azure import blobstorage
     from tensorflow import keras
     from kartai.tools.predict import savePredictedImages
@@ -104,9 +101,7 @@ def run_ml_predictions(checkpoint_name, output_dir, output_predictions_name=defa
 
     # Create ortofoto tiles for bbox area
     if skip_data_fetching == False:
-        #TODO: temp
-        print("Skipping data fetching")
-        #fetch_data_to_predict(geom, config_path)
+        fetch_data_to_predict(geom, config_path)
 
     checkpoint_path = os.path.join(env.get_env_variable(
         'trained_models_directory'), checkpoint_name)
@@ -158,9 +153,6 @@ def run_ml_predictions(checkpoint_name, output_dir, output_predictions_name=defa
         num_predictions//batch_size) + 1
 
     for i in range(splits):
-        #TODO: temp
-        if(i < 6750):
-            continue
         print(
             f'Run batch {i} of {splits}. Instances {batch_size*i} to {batch_size*i+batch_size}.')
         input_batch = prediction_input_list[batch_size *
@@ -189,8 +181,8 @@ def run_ml_predictions(checkpoint_name, output_dir, output_predictions_name=defa
                 # Open/download image and label
                 gdal_image = input_batch[i_batch]['image'].array
                 # Call code in order to download label which is needed later on
-                # TODO: acivate this when doing performance check
-                #label_image = input_batch[i_batch]['label'].array
+                if(download_labels):
+                    label_image = input_batch[i_batch]['label'].array
 
                 image = gdal_image.transpose((1, 2, 0))
                 if('lidar' in input_batch[i_batch]):
