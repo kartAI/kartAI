@@ -155,10 +155,12 @@ class DatasetBuilder:
 
         return True
 
-    def assemble_data(self, region, source_config, project_config=None, confidence_threshold=None, eval_model_checkpoint=None):
+    def assemble_data(self, region, source_config, project_config=None, confidence_threshold=None,
+                      eval_model_checkpoint=None, eager_load=False):
         """Generate cached images for an area, possibly satisfying the test implemented in the callable
          'evaluate' and return list of examples. An 'example' is a dictionary mapping image set names to
-         image paths in the cache. The 'evaluate(example)' should return True if the example is good"""
+         image paths in the cache. The 'evaluate(example)' should return True if the example is good.
+         For eager loading of data set eager_load=True"""
 
         number_of_examples = 0  # Images added to dataset
         skipped_images = 0  # Images looked at but not added due to dataset rule
@@ -217,6 +219,11 @@ class DatasetBuilder:
                     number_of_examples += 1
                     print(
                         f"\nAdded to dataset, total instances: {number_of_examples} of {max_size}")
+                    if eager_load:
+                        for k, v in example.items():
+                            if not v.array:
+                                raise ValueError(f"Component {k} not loaded in example {number_of_examples}")
+
                     yield example
                 else:
                     print("Skipping image, didn't pass dataset rule")
