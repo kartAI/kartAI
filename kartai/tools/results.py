@@ -55,10 +55,10 @@ def download_all_models():
 
 def create_ksand_dataframe_result(models):
     rows = []
-
     for model in models:
         model_name = Path(model).stem
         performance_metadata_path = get_ksand_performance_meta_path(model_name)
+
         if(not os.path.isfile(performance_metadata_path)):
             continue
         with open(performance_metadata_path) as f:
@@ -135,11 +135,11 @@ def get_ksand_dataset_name_and_path(model_name):
     return ksand_dataset_name, ksand_dataset_path, tupple_data
 
 
-def run_ksand_tests(models):
+def run_ksand_tests(models, crs):
     # Create performance-metadata file for each performance test
 
     output_predictions_name = "_prediction.tif"
-    #performance_metafiles = download_all_ksand_performance_meta_files()
+    performance_metafiles = download_all_ksand_performance_meta_files()
     predictions_output_dir = get_predictions_output_dir()
 
     for model in models:
@@ -158,13 +158,13 @@ def run_ksand_tests(models):
         # Clean current content of folder to make sure only current batch is in folder
         empty_folder(predictions_output_dir)
         run_ml_predictions(model_name, predictions_output_dir, output_predictions_name,
-                           skip_data_fetching=True, dataset_path_to_predict=ksand_dataset_path, tupple_data=tupple_data)
+                           skip_data_fetching=True, dataset_path_to_predict=ksand_dataset_path, tupple_data=tupple_data, download_labels=True)
 
         predictions_path = sorted(
             glob.glob(predictions_output_dir+f"/*{output_predictions_name}"))
 
         prediction_dataset_gdf = get_all_predicted_buildings_dataset(
-            predictions_path)
+            predictions_path, crs)
 
         IoU_ksand = get_IoU_for_ksand(prediction_dataset_gdf)
 
@@ -268,10 +268,16 @@ def empty_folder(folder):
 
 def main(args):
 
-    models = download_all_models()
+    kai_models = download_all_models()
 
+    # For testing: Manually adding stream models - have not implemented full support for displaying results for both types
+    #kai_stream_models = ["10-multiplex-mish-resnet-norway"]
+    #models = kai_models + kai_stream_models
+    models = kai_models
+
+    crs = "EPSG:25832"
     if args.ksand == True:
-        run_ksand_tests(models)
+        run_ksand_tests(models, crs)
     elif args.preview == True:
         create_ksand_dataframe_result(models)
     else:

@@ -2,12 +2,11 @@ import sys
 
 import numpy as np
 from tensorflow import keras as K
-from PIL import Image
 import json
 import os
-import tensorflow as tf
 from kartai.utils.dataset_utils import get_X_tuple, get_ground_truth, get_X_stack
 from kartai.datamodels_and_services.ImageSourceServices import Tile
+
 
 class DataGenerator(K.utils.Sequence):
     def __init__(self, datagenerator_config, num_classes, dataset_type, created_datasets_dirs, batch_size, shuffle=True):
@@ -19,7 +18,8 @@ class DataGenerator(K.utils.Sequence):
         for created_dataset in created_datasets_dirs:
             with open(os.path.join(created_dataset, filename), 'r') as input_data:
                 input_list_dataset_json = json.load(input_data)
-                input_list_dataset = Tile.tileset_from_json(input_list_dataset_json)
+                input_list_dataset = Tile.tileset_from_json(
+                    input_list_dataset_json)
                 input_list = input_list + input_list_dataset
 
         self.datagenerator_config = datagenerator_config

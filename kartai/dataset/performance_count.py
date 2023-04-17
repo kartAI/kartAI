@@ -5,17 +5,22 @@ import rasterio.merge
 from kartai.dataset.Iou_calculations import get_geo_data_frame
 from kartai.dataset.create_building_dataset import get_labels_dataset, get_new_buildings_dataset, get_new_frittliggende_dataset, get_raw_predictions, get_valid_geoms, merge_connected_geoms, perform_last_adjustments
 import env
+from kartai.utils.crs_utils import get_defined_crs_from_config_path
 
 CRS_prosjektomrade = 'EPSG:25832'
+# TODO: fetch from config instead - have method for fetching from config
+
 
 def get_performance_count_for_detected_buildings(all_predicted_buildings_dataset, predictions_path, model_name, predictions_output_dir, performance_output_dir):
 
-    config_path = 'config/dataset/bygg-no-rules.json'
+    config_path = 'config/dataset/ksand-manuell.json'
     with open(config_path, "r") as config_file:
         config = json.load(config_file)
 
+    CRS_prosjektomrade = get_defined_crs_from_config_path(config_path)
+
     FKB_labels_dataset = get_labels_dataset(
-        predictions_path, predictions_output_dir, config)
+        predictions_path, predictions_output_dir, config, CRS_prosjektomrade, is_ksand_test=True)
 
     new_buildings_dataset = get_new_buildings_dataset(
         all_predicted_buildings_dataset, FKB_labels_dataset)
@@ -25,7 +30,7 @@ def get_performance_count_for_detected_buildings(all_predicted_buildings_dataset
         new_buildings_dataset.geometry.area
 
     predicted_new_buildings = get_predicted_new_buildings(
-        all_predicted_buildings_dataset, predictions_path)
+        all_predicted_buildings_dataset, predictions_path, CRS_prosjektomrade)
 
     true_labels_dataset = get_merged_true_labels()
 
@@ -82,6 +87,7 @@ def get_dataset_count(dataset):
 
 
 def save_dataset(dataset, performance_output_dir, file_name):
+    os.makedirs(performance_output_dir, exist_ok=True)
     if dataset.empty:
         dataset = []
     else:
@@ -146,7 +152,7 @@ def get_correctly_detected_new_buildings(true_new_frittliggende_buildings, predi
     return true_detected_buildings
 
 
-def get_predicted_new_buildings(all_predicted_buildings_dataset, predictions_path):
+def get_predicted_new_buildings(all_predicted_buildings_dataset, predictions_path, crs):
     predicted_buildings_dataset = get_new_frittliggende_dataset(
         all_predicted_buildings_dataset)
 
@@ -155,7 +161,7 @@ def get_predicted_new_buildings(all_predicted_buildings_dataset, predictions_pat
 
     # Adding prob value, removing small buildings ++
     predicted_buildings_dataset = perform_last_adjustments(
-        predicted_buildings_dataset, full_img, full_transform)
+        predicted_buildings_dataset, full_img, full_transform, crs)
     predicted_buildings_dataset.index = predicted_buildings_dataset[
         'b_id']
     return predicted_buildings_dataset
