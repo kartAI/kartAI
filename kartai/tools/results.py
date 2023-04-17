@@ -273,6 +273,7 @@ def main(args):
     # For testing: Manually adding stream models - have not implemented full support for displaying results for both types
     #kai_stream_models = ["10-multiplex-mish-resnet-norway"]
     #models = kai_models + kai_stream_models
+    models = kai_models
 
     crs = "EPSG:25832"
     if args.ksand == True:
