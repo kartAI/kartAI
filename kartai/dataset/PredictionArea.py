@@ -24,10 +24,10 @@ def fetch_data_to_predict(geom, config_path):
     dataset_builder = DatasetBuilder(image_sets)
     if("ProjectArguments" in config):
         dataset = list(dataset_builder.assemble_data(
-            Region(geom), config["ImageSources"], project_config=config["ProjectArguments"]), eager_load=True)
+            Region(geom), config["ImageSources"], project_config=config["ProjectArguments"], eager_load=True))
     else:
         dataset = list(dataset_builder.assemble_data(
-            Region(geom), config["ImageSources"]), eager_load=True)
+            Region(geom), config["ImageSources"], eager_load=True))
 
     # Save file image references
     data_path = env.get_env_variable('created_datasets_directory')

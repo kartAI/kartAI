@@ -13,6 +13,8 @@ from tensorflow import keras
 
 import env
 from kartai.datamodels_and_services.ImageSourceServices import Tile
+from kartai.dataset.format_conversion import np_to_gdal_mem
+from kartai.dataset.raster_process_tools import merge_data
 from kartai.exceptions import CheckpointNotFoundException, InvalidCheckpointException
 from kartai.utils.model_utils import get_ground_truth, load_checkpoint_model, _get_input_images, checkpoint_exist
 from kartai.tools.train import getOptimizer
@@ -46,12 +48,13 @@ def predict_and_evaluate(created_datasets_path, datagenerator_config, checkpoint
 
     opt = getOptimizer("RMSprop", False)
 
-    batch_size = 2 # 6
+    batch_size = 2  # 6
     model.compile(optimizer=opt, loss='binary_crossentropy',
                   metrics=[keras.metrics.BinaryAccuracy(), IoU, IoU_fz, Iou_point_5, Iou_point_6, Iou_point_7, Iou_point_8, Iou_point_9])
 
     # Evaluate model on test data
-    results = model.evaluate(input_images, input_labels, batch_size, return_dict=True)
+    results = model.evaluate(input_images, input_labels,
+                             batch_size, return_dict=True)
     # Predict test data from model
     predictions = model.predict(input_images, batch_size)
 
@@ -60,12 +63,12 @@ def predict_and_evaluate(created_datasets_path, datagenerator_config, checkpoint
 
     save_outputs = save_prediction_images or save_diff_images or generate_metadata
     if save_outputs:
-        output_test_dir = os.path.join(env.get_env_variable(
+        output_dir = os.path.join(env.get_env_variable(
             'prediction_results_directory'), checkpoint_name_to_predict_with)
-        os.makedirs(output_test_dir, exist_ok=True)
+        os.makedirs(output_dir, exist_ok=True)
 
     if save_prediction_images or save_diff_images:
-        _save_outputs(output_test_dir, predictions, input_paths,
+        _save_outputs(output_dir, predictions, input_paths,
                       input_labels, save_prediction_images, save_diff_images)
 
     if generate_metadata:
@@ -75,31 +78,33 @@ def predict_and_evaluate(created_datasets_path, datagenerator_config, checkpoint
     return results
 
 
-def _save_outputs(output_test_dir, predictions, input_paths, input_labels, save_prediction_images=True, save_diff_images=True):
+def _save_outputs(output_dir, predictions, input_paths, input_labels, save_prediction_images=True, save_diff_images=True):
 
     if save_prediction_images:
-        file_list = savePredictedImages(predictions, input_paths,
-                                        output_test_dir, "_val_predict.tif")
-        gdal.BuildVRT(os.path.join(output_test_dir,
+        file_list = save_predicted_images_as_geotiff(predictions, input_paths,
+                                                     output_dir, "_val_predict.tif")
+        gdal.BuildVRT(os.path.join(output_dir,
                       "val_predict.vrt"), file_list, addAlpha=True)
 
     if save_diff_images:
-        file_list = savePredictedImages(predictions - input_labels,
-                                        input_paths, output_test_dir, "_val_diff.tif")
-        gdal.BuildVRT(os.path.join(output_test_dir,
+        file_list = save_predicted_images_as_geotiff(predictions - input_labels,
+                                                     input_paths, output_dir, "_val_diff.tif")
+        gdal.BuildVRT(os.path.join(output_dir,
                       "val_diff.vrt"), file_list, addAlpha=True)
 
 
-def savePredictedImages(test_pred, test_input_list, output_test_dir, suffix):
-    if not os.path.exists(output_test_dir):
-        os.makedirs(output_test_dir)
+def save_predicted_images_as_geotiff(test_pred, test_input_list, output_dir, suffix):
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     # Export test data as geotiff
     file_list = []
     for i in range(len(test_pred)):
         input_img_name = Path(test_input_list[i]['image'].file_path).stem
         # test_sample = gdal.Open(test_input_list[i]['image'])
         predict_fn = input_img_name + suffix
-        predict_fn = os.path.join(output_test_dir, predict_fn)
+        predict_fn = os.path.join(output_dir, predict_fn)
         file_list.append(os.path.abspath(predict_fn))
         ds = gdal.GetDriverByName('GTiff').Create(predict_fn,
                                                   test_pred.shape[1], test_pred.shape[2], 1, gdal.GDT_Float32,
@@ -119,7 +124,81 @@ def savePredictedImages(test_pred, test_input_list, output_test_dir, suffix):
     return file_list
 
 
-def createMetadataFile(created_datasets_path, checkpoint_path, output_test_dir, results):
+# data samples is {image: **, label: **}
+def save_predicted_images_as_contour_vectors(np_predictions, data_samples,
+                                             output_dir, suffix):
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Export data as ESRI shape contours
+    file_list = []
+    raster_predictions = []
+    for i in range(len(np_predictions)):
+        transformation, projection = get_transformation_and_projection(
+            data_samples[i])
+
+        pred_array = np_predictions[i, :, :, 0]
+        raster_prediction = np_to_gdal_mem(
+            pred_array, transformation, projection)
+        raster_predictions.append(raster_prediction)
+
+    # Merge the raster tiles before creating contour vectors to lower number of files
+    merged_raster_predictions_for_batch = merge_data(
+        raster_predictions, save_to_disk=False)
+
+    prediction_output_dir_geosjon = get_batch_output_dir(
+        data_samples, output_dir, suffix)
+
+    out_geojson_driver = ogr.GetDriverByName("GeoJSON")
+    if os.path.exists(prediction_output_dir_geosjon):
+        os.remove(prediction_output_dir_geosjon)
+
+    out_geojson_source = out_geojson_driver.CreateDataSource(
+        prediction_output_dir_geosjon)
+
+    out_geojson_layer = out_geojson_source.CreateLayer(
+        'geosjon_contour', osr.SpatialReference(projection))
+
+    # define fields of id and elev
+    fieldDef = ogr.FieldDefn("ID", ogr.OFTInteger)
+    out_geojson_layer.CreateField(fieldDef)
+    fieldDef = ogr.FieldDefn("elev", ogr.OFTReal)
+    out_geojson_layer.CreateField(fieldDef)
+
+    #fixedLevelCount=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+    fixedLevelCount = [0, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+    ''' ContourGenerate(
+      Band srcBand, double contourInterval, double contourBase, 
+      int fixedLevelCount, int useNoData, double noDataValue, Layer dstLayer, int idField, int elevField, GDALProgressFunc callback=0, void * callback_data=None) -> int '''
+    gdal.ContourGenerate(srcBand=merged_raster_predictions_for_batch.GetRasterBand(
+        1), contourInterval=0.0, contourBase=1.0, fixedLevelCount=fixedLevelCount, useNoData=0, noDataValue=0, dstLayer=out_geojson_layer, idField=0, elevField=1)
+
+    out_geojson_source = None
+
+    return file_list
+
+
+def get_batch_output_dir(data_samples, output_dir, suffix):
+    input_img_name = Path(data_samples[0]['image'].file_path).stem
+
+    prediction_output_dir_geosjon = os.path.abspath(
+        os.path.join(output_dir, input_img_name + suffix+".json"))
+    return prediction_output_dir_geosjon
+
+
+def get_transformation_and_projection(data_sample):
+    transformation = data_sample['image'].geo_transform
+    try:
+        projection = data_sample['image'].srs_wkt
+    except:
+        # Temp error fix due to proj library error
+        print("proj error getting projection - fallback to epsg:25832")
+        projection = ("EPSG:25832")
+    return transformation, projection
+
+
+def createMetadataFile(created_datasets_path, checkpoint_path, output_dir, results):
     ct = datetime.datetime.now()
     # TODO: fetch training dataset id instead of adding path
 
@@ -130,7 +209,7 @@ def createMetadataFile(created_datasets_path, checkpoint_path, output_test_dir, 
             }
     ident = 2
 
-    prediction_file = output_test_dir+'_prediction.json'
+    prediction_file = output_dir+'_prediction.json'
 
     with open(prediction_file, 'w') as outfile:
         json.dump(meta, outfile, indent=ident)

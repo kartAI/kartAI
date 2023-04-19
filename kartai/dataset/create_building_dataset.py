@@ -17,6 +17,7 @@ import rasterio.merge
 
 from rasterstats import zonal_stats
 from kartai.datamodels_and_services.ImageSourceServices import Tile
+from kartai.tools.predict import save_predicted_images_as_contour_vectors
 from kartai.utils.crs_utils import get_defined_crs_from_config, get_defined_crs_from_config_path
 
 from kartai.utils.dataset_utils import get_X_tuple
@@ -25,7 +26,7 @@ default_output_dir = os.path.join(env.get_env_variable(
     'prediction_results_directory'), 'prediction_for_client')
 
 output_prediction_suffix = "prediction"
-default_output_predictions_name = f"_{output_prediction_suffix}.tif"
+default_output_predictions_name = f"_{output_prediction_suffix}"
 
 # Used by API
 
@@ -33,6 +34,7 @@ default_output_predictions_name = f"_{output_prediction_suffix}.tif"
 def create_predicted_buildings_dataset(geom, checkpoint_name, data_config_path, output_dir=default_output_dir):
     skip_to_postprocess = False  # For testing
 
+    # TODO: run batches of data through both prediction and postprocessing?
     if skip_to_postprocess == False:
         run_ml_predictions(checkpoint_name, output_dir,
                            default_output_predictions_name, data_config_path, geom)
@@ -62,7 +64,7 @@ def create_building_dataset(geom, checkpoint_name, area_name, data_config_path, 
 
     print('Starting postprocess')
 
-    produce_resulting_datasets(
+    produce_vector_buildings(
         output_dir, config, max_mosaic_batch_size, only_raw_predictions, f"{area_name}_{checkpoint_name}", save_to)
 
 
@@ -89,10 +91,10 @@ def save_dataset_to_azure(data, filename, modelname):
         modelname, filename, blob_service_client, data)
 
 
-def run_ml_predictions(checkpoint_name, output_dir, output_predictions_name=default_output_predictions_name, config_path=None, geom=None, skip_data_fetching=False, dataset_path_to_predict=None, tupple_data=False, download_labels=False):
+def run_ml_predictions(checkpoint_name, output_dir, output_predictions_name=default_output_predictions_name, config_path=None, geom=None, skip_data_fetching=False, dataset_path_to_predict=None, tupple_data=False, download_labels=False, save_as_contour=False, batch_size=8):
     from azure import blobstorage
     from tensorflow import keras
-    from kartai.tools.predict import savePredictedImages
+    from kartai.tools.predict import save_predicted_images_as_geotiff
     from kartai.tools.train import getLoss
     from kartai.dataset.PredictionArea import fetch_data_to_predict
 
@@ -147,7 +149,7 @@ def run_ml_predictions(checkpoint_name, output_dir, output_predictions_name=defa
         else:
             sys.exit("Unknown input type dimensions")
 
-    batch_size = min(8, len(prediction_input_list)-1)
+    batch_size = min(batch_size, len(prediction_input_list)-1)
     num_predictions = len(prediction_input_list)
     splits = (num_predictions//batch_size) if num_predictions % batch_size == 0 else (
         num_predictions//batch_size) + 1
@@ -180,8 +182,9 @@ def run_ml_predictions(checkpoint_name, output_dir, output_predictions_name=defa
             for i_batch in range(len(input_batch)):
                 # Open/download image and label
                 gdal_image = input_batch[i_batch]['image'].array
-                # Call code in order to download label which is needed later on
+
                 if(download_labels):
+                    # Call code in order to download label which is needed later on
                     label_image = input_batch[i_batch]['label'].array
 
                 image = gdal_image.transpose((1, 2, 0))
@@ -199,12 +202,16 @@ def run_ml_predictions(checkpoint_name, output_dir, output_predictions_name=defa
         else:
             np_pred_results_iteration = model.predict(images_to_predict)
 
-        savePredictedImages(np_pred_results_iteration, input_batch,
-                            output_dir, output_predictions_name)
+        if save_as_contour:
+            save_predicted_images_as_contour_vectors(np_pred_results_iteration, input_batch,
+                                                     output_dir, output_predictions_name)
+        else:
+            save_predicted_images_as_geotiff(np_pred_results_iteration, input_batch,
+                                             output_dir, output_predictions_name)  # TODO: move tif ending into method
     print('Completed predictions, start postprocessing')
 
 
-def produce_resulting_datasets(output_dir, config, max_batch_size, only_raw_predictions, modelname, save_to):
+def produce_vector_buildings(output_dir, config, max_batch_size, only_raw_predictions, modelname, save_to):
 
     predictions_path = sorted(
         glob.glob(output_dir+f"/*{default_output_predictions_name}"))
@@ -232,8 +239,8 @@ def produce_resulting_datasets(output_dir, config, max_batch_size, only_raw_pred
         if only_raw_predictions == False:
             print('first in batch predictions', batch_prediction_paths[0])
             # Check if there are data in this batch
-            new_tilbygg_dataset, new_frittliggende_bygg_dataset, existing_buildings_dataset, all_predicted_buildings_dataset = create_datasets(
-                batch_prediction_paths, output_dir, only_raw_predictions, config)
+            new_tilbygg_dataset, new_frittliggende_bygg_dataset, existing_buildings_dataset, all_predicted_buildings_dataset = create_categorised_predicted_buldings_vectordata(
+                batch_prediction_paths, output_dir, config)
 
             if all_predicted_buildings_dataset:  # Check if there are data in this batch
                 save_dataset(
@@ -253,8 +260,8 @@ def produce_resulting_datasets(output_dir, config, max_batch_size, only_raw_pred
             else:
                 print('no data in batch')
         else:
-            all_predicted_buildings_dataset = create_datasets(
-                batch_prediction_paths, output_dir, only_raw_predictions, config)
+            all_predicted_buildings_dataset = create_all_predicted_buildings_vectordata(
+                batch_prediction_paths, config)
             if all_predicted_buildings_dataset:
                 save_dataset(all_predicted_buildings_dataset,
                              f'raw_predictions_{str(i)}.json', output_dir, modelname, save_to)
@@ -291,11 +298,28 @@ def get_raw_predictions(predictions_path):
     return raw_prediction_imgs
 
 
-def create_datasets(batch_predictions_path, output_dir, only_raw_predictions, config):
-
+def create_all_predicted_buildings_vectordata(predictions_path, config):
     crs = get_defined_crs_from_config(config)
 
-    predictions_path = batch_predictions_path
+    all_predicted_buildings_dataset = get_all_predicted_buildings_dataset(
+        predictions_path, crs)
+
+    if all_predicted_buildings_dataset.empty:
+        return None
+
+    # justering på datasettene
+
+    raw_prediction_imgs = get_raw_predictions(predictions_path)
+    full_img, full_transform = rasterio.merge.merge(raw_prediction_imgs)
+
+    all_predicted_buildings_dataset = add_probability_values(
+        all_predicted_buildings_dataset, full_img, full_transform, crs)
+
+    return all_predicted_buildings_dataset.to_json()
+
+
+def create_categorised_predicted_buldings_vectordata(predictions_path, output_dir, config):
+    crs = get_defined_crs_from_config(config)
 
     all_predicted_buildings_dataset = get_all_predicted_buildings_dataset(
         predictions_path, crs)
@@ -304,10 +328,7 @@ def create_datasets(batch_predictions_path, output_dir, only_raw_predictions, co
         predictions_path, output_dir, config, crs)
 
     if labels_dataset.empty or all_predicted_buildings_dataset.empty:
-        if only_raw_predictions == False:
-            return None, None, None, None
-        else:
-            return None
+        return None, None, None, None
 
     new_buildings_dataset = get_new_buildings_dataset(
         all_predicted_buildings_dataset, labels_dataset)
@@ -316,36 +337,31 @@ def create_datasets(batch_predictions_path, output_dir, only_raw_predictions, co
     all_predicted_buildings_dataset['labels_area'] = all_predicted_buildings_dataset.geometry.area - \
         new_buildings_dataset.geometry.area
 
-    if only_raw_predictions == False:
-        new_frittliggende_bygg_dataset = get_new_frittliggende_dataset(
-            all_predicted_buildings_dataset)
+    new_frittliggende_bygg_dataset = get_new_frittliggende_dataset(
+        all_predicted_buildings_dataset)
 
-        new_tilbygg_dataset = get_tilbygg_dataset(
-            all_predicted_buildings_dataset, labels_dataset)
+    new_tilbygg_dataset = get_tilbygg_dataset(
+        all_predicted_buildings_dataset, labels_dataset)
 
-        existing_buildings = get_existing_buildings_dataset(
-            all_predicted_buildings_dataset,  new_tilbygg_dataset, new_frittliggende_bygg_dataset)
+    existing_buildings = get_existing_buildings_dataset(
+        all_predicted_buildings_dataset,  new_tilbygg_dataset, new_frittliggende_bygg_dataset)
 
     # justering på datasettene
 
     raw_prediction_imgs = get_raw_predictions(predictions_path)
     full_img, full_transform = rasterio.merge.merge(raw_prediction_imgs)
 
-    if only_raw_predictions == False:
-        new_tilbygg_dataset = perform_last_adjustments(
-            new_tilbygg_dataset, full_img, full_transform, crs)
-        new_frittliggende_bygg_dataset = perform_last_adjustments(
-            new_frittliggende_bygg_dataset, full_img, full_transform, crs)
-        existing_buildings = perform_last_adjustments(
-            existing_buildings, full_img, full_transform, crs)
+    new_tilbygg_dataset = perform_last_adjustments(
+        new_tilbygg_dataset, full_img, full_transform, crs)
+    new_frittliggende_bygg_dataset = perform_last_adjustments(
+        new_frittliggende_bygg_dataset, full_img, full_transform, crs)
+    existing_buildings = perform_last_adjustments(
+        existing_buildings, full_img, full_transform, crs)
 
     all_predicted_buildings_dataset = add_probability_values(
         all_predicted_buildings_dataset, full_img, full_transform, crs)
 
-    if only_raw_predictions == True:
-        return all_predicted_buildings_dataset.to_json()
-    else:
-        return new_tilbygg_dataset.to_json(), new_frittliggende_bygg_dataset.to_json(), existing_buildings.to_json(), all_predicted_buildings_dataset.to_json()
+    return new_tilbygg_dataset.to_json(), new_frittliggende_bygg_dataset.to_json(), existing_buildings.to_json(), all_predicted_buildings_dataset.to_json()
 
 
 def perform_last_adjustments(dataset, full_img, full_transform, crs):

@@ -15,7 +15,8 @@ def merge_raster_paths(paths, normalize_data=False, save_to_disk=False, output_d
         if normalize_data:
             data = cv2.normalize(data, None, alpha=0, beta=1,
                                  norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
-        target = np_to_gdal_mem(data, ds)
+        target = np_to_gdal_mem(
+            data, ds.GetGeoTransform(), ds.GetProjectionRef())
         data_to_merge.append(target)
 
     mosaic_res = merge_data(data_to_merge, save_to_disk,
@@ -29,7 +30,8 @@ def merge_raster_np_images(np_images, predictions_path, save_to_disk=False, outp
         np_image = np_images[i]
         # Get corresponding prediction to set the correct transformation and projection
         input_ds = gdal.Open(predictions_path[i])
-        target = np_to_gdal_mem(np_image, input_ds)
+        target = np_to_gdal_mem(
+            np_image, input_ds.GetGeoTransform(), input_ds.GetProjectionRef())
         data_to_merge.append(target)
 
     mosaic_res = merge_data(data_to_merge, save_to_disk,
@@ -37,7 +39,7 @@ def merge_raster_np_images(np_images, predictions_path, save_to_disk=False, outp
     return mosaic_res
 
 
-def merge_data(data_to_merge, save_to_disk, output_dir, output_name):
+def merge_data(data_to_merge, save_to_disk, output_dir=None, output_name=None):
 
     if(save_to_disk == False):
         mosaic_res = gdal.Warp("MEM", data_to_merge, format="MEM",
@@ -66,7 +68,7 @@ def get_adjacent_images(path, paths: List[str]):
             else:
                 image = Image.open(image_path)
                 images[y_index][x_index] = image
-    
+
     return images
 
 
@@ -93,7 +95,7 @@ def remove_noise_batch(predictions_path_batch: List[str], all_prediction_paths: 
         noise_removed_prediction_image = remove_noise(images, minimize_radius)
         np_denoised_predictions.append(
             image_to_np(noise_removed_prediction_image))
-    
+
     return np_denoised_predictions
 
 
@@ -101,10 +103,10 @@ def remove_noise(images: list, minimize_radius: int) -> Image:
     # Creating a two pass minimize
 
     # Create RGB to test if expand function works
-    
+
     adjecent_border: int = 50
 
-    img: Image = images[1][1] # Get the center image
+    img: Image = images[1][1]  # Get the center image
     size: int = img.width
     np_image_with_adjacent = np.zeros((size*3, size*3))
     for x in range(len(images)):
@@ -113,11 +115,13 @@ def remove_noise(images: list, minimize_radius: int) -> Image:
                 np_image = np.zeros((size, size))
             else:
                 np_image = image_to_np(images[y][x])
-            np_image_with_adjacent[y*size:y*size+size, x*size:x*size+size] = np_image
+            np_image_with_adjacent[y*size:y*size +
+                                   size, x*size:x*size+size] = np_image
 
     # Crop image to improve minimize performance
-    np_image_with_adjacent_croped = image_to_np(center_crop(np_to_image(np_image_with_adjacent), size - adjecent_border))
-    
+    np_image_with_adjacent_croped = image_to_np(center_crop(
+        np_to_image(np_image_with_adjacent), size - adjecent_border))
+
     # Normalize input image:
     normalized_img_arr = cv2.normalize(np_image_with_adjacent_croped, None, alpha=0, beta=1,
                                        norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
@@ -125,7 +129,7 @@ def remove_noise(images: list, minimize_radius: int) -> Image:
     normalized_image = np_to_image(normalized_img_arr)
 
     # img to read values from - never changed
-    padded_image = ImageOps.expand(        
+    padded_image = ImageOps.expand(
         normalized_image, border=minimize_radius, fill=0)
 
     vert_minimized_img = vertical_minimize(padded_image, minimize_radius)
