@@ -15,4 +15,4 @@ def add_parser(subparser):
 
 
 def main(args):
-    blobstorage.uploadModelToAzureBlobStorage(args.model_name)
+    blobstorage.upload_model_to_azure_blobstorage(args.model_name)

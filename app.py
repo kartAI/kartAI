@@ -68,7 +68,7 @@ cors = CORS(app)
 
 @app.route("/Models",  methods=['GET'])
 def getModels():
-    models = blobstorage.getAvailableTrainedModels()
+    models = blobstorage.get_available_trained_models()
     return jsonify(models)
 
 

@@ -76,7 +76,8 @@ def get_X_stack(batch_size, datapaths_for_batch, input_stack):
                     f"error opening image: {datapaths_for_batch[i]}, {ex}", file=sys.stderr)
 
             if data_instance is not None:
-                data_instance_array = data_instance.transpose((1,2,0))#np.array(data_instance)
+                data_instance_array = data_instance.transpose(
+                    (1, 2, 0))  # np.array(data_instance)
                 if(len(data_instance_array.shape) == 2):
                     data_instance_array = np.expand_dims(
                         data_instance_array, 2)

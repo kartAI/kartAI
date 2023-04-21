@@ -301,4 +301,4 @@ def train(checkpoint_name, dataset_name, input_generator_config_path, save_model
                          'activation'], train_args['batch_size'], train_args['epochs'], train_history, train_args['optimizer'], train_args['loss'], checkpoint_to_finetune_from=checkpoint_to_finetune)
 
     if save_model:
-        blobstorage.uploadModelToAzureBlobStorage(checkpoint_name)
+        blobstorage.upload_model_to_azure_blobstorage(checkpoint_name)

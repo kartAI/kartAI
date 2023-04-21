@@ -39,6 +39,9 @@ def add_parsers():
     elif tool == "upload_model":
         from kartai.tools import upload_model
         upload_model.add_parser(subparser)
+    elif tool == "upload_files_in_dir":
+        from kartai.tools import upload_files_in_dir
+        upload_files_in_dir.add_parser(subparser)
     elif tool == "full_analysis":
         from kartai.tools import full_analysis
         full_analysis.add_parser(subparser)

@@ -93,46 +93,85 @@ def _save_outputs(output_dir, predictions, input_paths, input_labels, save_predi
                       "val_diff.vrt"), file_list, addAlpha=True)
 
 
-def save_predicted_images_as_geotiff(test_pred, test_input_list, output_dir, suffix):
+def save_predicted_images_as_geotiff(np_predictions, data_samples, output_dir, suffix=None):
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
     # Export test data as geotiff
     file_list = []
-    for i in range(len(test_pred)):
-        input_img_name = Path(test_input_list[i]['image'].file_path).stem
-        # test_sample = gdal.Open(test_input_list[i]['image'])
-        predict_fn = input_img_name + suffix
-        predict_fn = os.path.join(output_dir, predict_fn)
-        file_list.append(os.path.abspath(predict_fn))
-        ds = gdal.GetDriverByName('GTiff').Create(predict_fn,
-                                                  test_pred.shape[1], test_pred.shape[2], 1, gdal.GDT_Float32,
+    for i in range(len(np_predictions)):
+        input_img_name = Path(data_samples[i]['image'].file_path).stem
+        prediction_output_dir = input_img_name + suffix + \
+            ".tif" if suffix else input_img_name + "_prediction.tif"
+        prediction_output_dir = os.path.join(output_dir, prediction_output_dir)
+        file_list.append(os.path.abspath(prediction_output_dir))
+        ds = gdal.GetDriverByName('GTiff').Create(prediction_output_dir,
+                                                  np_predictions.shape[1], np_predictions.shape[2], 1, gdal.GDT_Float32,
                                                   ['COMPRESS=LZW', 'PREDICTOR=2'])
-        tranformation = test_input_list[i]['image'].geo_transform
-        ds.SetGeoTransform(tranformation)
-        try:
-            projection = test_input_list[i]['image'].srs_wkt
-        except:
-            # Temp error fix due to proj library error
-            print("proj error getting projection - fallback to epsg:25832")
-            projection = ("EPSG:25832")
 
+        transformation, projection = get_transformation_and_projection(
+            data_samples[i])
+        ds.SetGeoTransform(transformation)
         ds.SetProjection(projection)
-        ds.GetRasterBand(1).WriteArray(test_pred[i, :, :, 0])
+        ds.GetRasterBand(1).WriteArray(np_predictions[i, :, :, 0])
         ds = None
-    return file_list
+    return file_list, projection
 
 
-# data samples is {image: **, label: **}
-def save_predicted_images_as_contour_vectors(np_predictions, data_samples,
-                                             output_dir, suffix):
+def create_contour_result(raster_path, output_dir, projection):
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    # Export data as ESRI shape contours
-    file_list = []
+    # Create a virtual raster:
+    raster_filenames = os.listdir(raster_path)
+    rasters = []
+    for filename in raster_filenames:
+        rasters.append(os.path.join(raster_path, filename))
+
+    vrt_output_dir = os.path.join(output_dir, "rasters_virtual.vrt")
+    vrt_opt = gdal.BuildVRTOptions(addAlpha=True)
+    vrt_res = gdal.BuildVRT(vrt_output_dir, rasters, options=vrt_opt)
+
+    prediction_output_dir_geojson = os.path.join(
+        output_dir, "complete_contour.json")
+
+    out_geojson_driver = ogr.GetDriverByName("GeoJSON")
+    if os.path.exists(prediction_output_dir_geojson):
+        os.remove(prediction_output_dir_geojson)
+
+    out_geojson_source = out_geojson_driver.CreateDataSource(
+        prediction_output_dir_geojson)
+
+    out_geojson_layer = out_geojson_source.CreateLayer(
+        'geojson_contour', osr.SpatialReference(projection))
+
+    # define fields of id and elev
+    fieldDef = ogr.FieldDefn("ID", ogr.OFTInteger)
+    out_geojson_layer.CreateField(fieldDef)
+    fieldDef = ogr.FieldDefn("elev", ogr.OFTReal)
+    out_geojson_layer.CreateField(fieldDef)
+
+    #fixedLevelCount=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+    fixedLevelCount = [0, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+
+    ''' ContourGenerate(Band srcBand, double contourInterval, double contourBase,int fixedLevelCount, int useNoData, double noDataValue, Layer dstLayer, int idField, int elevField, GDALProgressFunc callback=0, void * callback_data=None) -> int '''
+    gdal.ContourGenerate(srcBand=vrt_res.GetRasterBand(
+        1), contourInterval=0.0, contourBase=1.0, fixedLevelCount=fixedLevelCount, useNoData=0, noDataValue=0, dstLayer=out_geojson_layer, idField=0, elevField=1)
+
+    out_geojson_source = None
+
+# data samples is {image: **, label: **}
+
+
+def save_predicted_images_as_contour_vectors(np_predictions, data_samples,
+                                             output_dir, suffix, save_to):
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Export data as geojson contours
     raster_predictions = []
     for i in range(len(np_predictions)):
         transformation, projection = get_transformation_and_projection(
@@ -147,18 +186,18 @@ def save_predicted_images_as_contour_vectors(np_predictions, data_samples,
     merged_raster_predictions_for_batch = merge_data(
         raster_predictions, save_to_disk=False)
 
-    prediction_output_dir_geosjon = get_batch_output_dir(
-        data_samples, output_dir, suffix)
+    prediction_output_dir_geojson = get_batch_output_dir(
+        data_samples, output_dir, "_batched_"+suffix)
 
     out_geojson_driver = ogr.GetDriverByName("GeoJSON")
-    if os.path.exists(prediction_output_dir_geosjon):
-        os.remove(prediction_output_dir_geosjon)
+    if os.path.exists(prediction_output_dir_geojson):
+        os.remove(prediction_output_dir_geojson)
 
     out_geojson_source = out_geojson_driver.CreateDataSource(
-        prediction_output_dir_geosjon)
+        prediction_output_dir_geojson)
 
     out_geojson_layer = out_geojson_source.CreateLayer(
-        'geosjon_contour', osr.SpatialReference(projection))
+        'geojson_contour', osr.SpatialReference(projection))
 
     # define fields of id and elev
     fieldDef = ogr.FieldDefn("ID", ogr.OFTInteger)
@@ -168,23 +207,20 @@ def save_predicted_images_as_contour_vectors(np_predictions, data_samples,
 
     #fixedLevelCount=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
     fixedLevelCount = [0, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-    ''' ContourGenerate(
-      Band srcBand, double contourInterval, double contourBase, 
-      int fixedLevelCount, int useNoData, double noDataValue, Layer dstLayer, int idField, int elevField, GDALProgressFunc callback=0, void * callback_data=None) -> int '''
+
+    ''' ContourGenerate(Band srcBand, double contourInterval, double contourBase,int fixedLevelCount, int useNoData, double noDataValue, Layer dstLayer, int idField, int elevField, GDALProgressFunc callback=0, void * callback_data=None) -> int '''
     gdal.ContourGenerate(srcBand=merged_raster_predictions_for_batch.GetRasterBand(
         1), contourInterval=0.0, contourBase=1.0, fixedLevelCount=fixedLevelCount, useNoData=0, noDataValue=0, dstLayer=out_geojson_layer, idField=0, elevField=1)
 
     out_geojson_source = None
 
-    return file_list
-
 
 def get_batch_output_dir(data_samples, output_dir, suffix):
     input_img_name = Path(data_samples[0]['image'].file_path).stem
 
-    prediction_output_dir_geosjon = os.path.abspath(
+    prediction_output_dir_geojson = os.path.abspath(
         os.path.join(output_dir, input_img_name + suffix+".json"))
-    return prediction_output_dir_geosjon
+    return prediction_output_dir_geojson
 
 
 def get_transformation_and_projection(data_sample):
@@ -248,7 +284,7 @@ def main(args):
         'trained_models_directory'), args.checkpoint_name+'.h5')
 
     if not os.path.isfile(checkpoint_path):
-        blobstorage.downloadModelFileFromAzure(args.checkpoint_name)
+        blobstorage.download_model_file_from_azure(args.checkpoint_name)
 
     with open(args.config, encoding="utf8") as config:
         datagenerator_config = json.load(config)

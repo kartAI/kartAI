@@ -225,7 +225,7 @@ def run_data_teacher(data_teacher_name: str, validation_dataset_name: str, train
                   best_model_name)
 
             if in_test_mode == False:
-                blobstorage.uploadModelToAzureBlobStorage(best_model_name)
+                blobstorage.upload_model_to_azure_blobstorage(best_model_name)
 
             create_datateacher_metadata_file(
                 best_model_name, model_evaluations, models_tested, data_teacher_name, train_args)

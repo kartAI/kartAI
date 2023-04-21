@@ -27,7 +27,7 @@ def get_dataset_dirs(dataset_name_input):
 
 
 def get_existing_model_names():
-    existing_trained_models = blobstorage.getAvailableTrainedModels()
+    existing_trained_models = blobstorage.get_available_trained_models()
     existing_trained_model_names = [
         Path(modelname).stem for modelname in existing_trained_models]
 
