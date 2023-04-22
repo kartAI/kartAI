@@ -17,7 +17,7 @@ import rasterio.merge
 
 from rasterstats import zonal_stats
 from kartai.datamodels_and_services.ImageSourceServices import Tile
-from kartai.utils.crs_utils import get_defined_crs_from_config, get_defined_crs_from_config_path
+from kartai.utils.crs_utils import get_defined_crs_from_config, get_defined_crs_from_config_path, get_projection_from_config_path
 
 from kartai.utils.dataset_utils import get_X_tuple
 from kartai.utils.prediction_utils import get_raster_predictions_dir, get_vector_predictions_dir
@@ -52,7 +52,9 @@ def create_building_dataset(geom, checkpoint_name, area_name, data_config_path, 
         config = json.load(config_file)
 
     if not skip_to_postprocess:
-        run_ml_predictions(checkpoint_name, area_name,
+        projection = get_projection_from_config_path(data_config_path)
+
+        run_ml_predictions(checkpoint_name, area_name, projection,
                            config_path=data_config_path, geom=geom)
 
         time.sleep(2)  # Wait for complete saving to disk
@@ -82,7 +84,7 @@ def save_dataset_locally(data, filename, output_dir):
     file.close()
 
 
-def run_ml_predictions(checkpoint_name, area_name, config_path=None, geom=None, skip_data_fetching=False, tupple_data=False, download_labels=False, batch_size=8, save_to='local'):
+def run_ml_predictions(checkpoint_name, area_name, projection, config_path=None, geom=None, skip_data_fetching=False, tupple_data=False, download_labels=False, batch_size=8, save_to='local'):
     from kartai.tools.predict import save_predicted_images_as_geotiff
 
     dataset_path_to_predict = get_dataset_to_predict_dir(area_name)
@@ -126,7 +128,7 @@ def run_ml_predictions(checkpoint_name, area_name, config_path=None, geom=None, 
 
         # Check if batch is already produced and saved:
         last_in_batch = Path(
-            input_batch[i]['image'].file_path).stem+"_prediction.tif"
+            input_batch[-1]['image'].file_path).stem+"_prediction.tif"
         if(os.path.exists(os.path.join(raster_output_dir, last_in_batch))):
             print("batch already produced - skipping to next")
             continue
@@ -142,9 +144,8 @@ def run_ml_predictions(checkpoint_name, area_name, config_path=None, geom=None, 
                 input_batch, img_dims, download_labels)
             np_pred_results_iteration = model.predict(images_to_predict)
 
-        file_list, projection = save_predicted_images_as_geotiff(np_pred_results_iteration, input_batch,
-                                                                 raster_output_dir)
-    return projection
+        save_predicted_images_as_geotiff(np_pred_results_iteration, input_batch,
+                                         raster_output_dir, projection)
 
 
 def get_dataset_to_predict_dir(area_name):
@@ -233,7 +234,7 @@ def get_images_to_predict(input_batch, img_dims, download_labels):
 
         if(download_labels):
             # Call code in order to download label which is needed later on
-            label_image = input_batch[i_batch]['label'].array
+            input_batch[i_batch]['label'].array
 
         image = gdal_image.transpose((1, 2, 0))
         if('lidar' in input_batch[i_batch]):

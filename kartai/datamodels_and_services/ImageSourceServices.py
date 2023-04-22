@@ -11,7 +11,7 @@ import scipy as sp
 import env
 
 # ogr.UseExceptions()
-# gdal.UseExceptions()
+gdal.UseExceptions()
 
 
 class TileGrid:
@@ -195,7 +195,10 @@ class Tile:
         if self._image_source.cache_root is not None and os.path.exists(file_path):
             data_source = gdal.Open(file_path)
             self._geo_transform = data_source.GetGeoTransform()
-            self._srs_wkt = data_source.GetSpatialRef().ExportToWkt()
+            try:
+              self._srs_wkt = data_source.GetSpatialRef().ExportToWkt()
+            except Exception:
+                pass
             self._array = data_source.ReadAsArray()
         else:
             self._array, self._srs_wkt, self._geo_transform = \
@@ -369,7 +372,7 @@ class WMSImageSource(ImageSource):
         # Use existing
         elif req.status_code == 304:
             data_source = gdal.Open(image_path)
-            return data_source.ReadAsArray(), data_source.GetSpatialRef().ExportToWkt(), data_source.GetGeoTransform() 
+            return data_source.ReadAsArray(), data_source.GetSpatialRef().ExportToWkt(), data_source.GetGeoTransform()
 
         # Handle error
         else:
@@ -590,8 +593,8 @@ class ImageFileImageSource(ImageSource):
     def load_image(self, image_path, minx, miny, maxx, maxy, tile_size):
         """Load or generate an image with the geometry given by
         minx, miny, maxx, maxy, srid, tile_size from the image source and store into the image_path"""
-        os.makedirs(os.path.dirname(image_path), exist_ok = True)
-        
+        os.makedirs(os.path.dirname(image_path), exist_ok=True)
+
         target_ds = gdal.GetDriverByName('GTiff').Create(
             str(image_path),
             tile_size, tile_size, self.data_source.RasterCount, gdal.GDT_Byte,

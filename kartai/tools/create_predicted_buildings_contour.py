@@ -1,8 +1,8 @@
-import os
-import env
+
 import argparse
 from kartai.dataset.create_building_dataset import run_ml_predictions
 from kartai.tools.predict import create_contour_result
+from kartai.utils.crs_utils import get_projection_from_config_path
 from kartai.utils.geometry_utils import parse_region_arg
 from kartai.utils.prediction_utils import get_contour_predictions_dir, get_raster_predictions_dir
 from kartai.utils.train_utils import get_existing_model_names
@@ -27,9 +27,9 @@ def add_parser(subparser):
     parser.add_argument('-an', "--area-name", type=str,
                         help="Name of area that is analyzed. Used to prefix output folder in azure",
                         required=True)
-    parser.add_argument("-mb", "--max_mosaic_batch_size", type=int,
-                        help="Max batch size for creating mosaic of the predictions",
-                        default=40)
+    parser.add_argument("-mb", "--max_batch_size", type=int,
+                        help="Max batch size for creating raster images",
+                        default=200)
 
     parser.add_argument("-c", "--config_path", type=str,
                         help="Data configuration file", required=True)
@@ -44,31 +44,18 @@ def add_parser(subparser):
 
 
 def main(args):
-    ''' 
-        Det må være samme datastruktur uavhengig av hvilken postprosessering man ønkser å benytte.
-
-        Kan strukturen være:
-
-        - results 
-          - area_name
-            -checkpoint_name
-              -rasters
-              -contour
-              -vector
-
-    '''
-
     geom = parse_region_arg(args.region)
 
     skip_data_fetching = False if args.skip_data_fetching == 'false' or args.skip_data_fetching == None else True
-
     skip_to_postprocess = False  # TODO: get from args
 
     print('skip_data_fetching', skip_data_fetching)
 
+    projection = get_projection_from_config_path(args.config_path)
+
     if skip_to_postprocess == False:
-        projection = run_ml_predictions(args.checkpoint_name, args.area_name,
-                                        args.config_path, geom, batch_size=args.max_mosaic_batch_size, skip_data_fetching=skip_data_fetching, save_to=args.save_to)
+        run_ml_predictions(args.checkpoint_name, args.area_name, projection,
+                           args.config_path, geom, batch_size=args.max_batch_size, skip_data_fetching=skip_data_fetching, save_to=args.save_to)
 
     raster_output_dir = get_raster_predictions_dir(
         args.area_name, args.checkpoint_name)

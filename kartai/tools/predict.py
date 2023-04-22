@@ -78,22 +78,22 @@ def predict_and_evaluate(created_datasets_path, datagenerator_config, checkpoint
     return results
 
 
-def _save_outputs(output_dir, predictions, input_paths, input_labels, save_prediction_images=True, save_diff_images=True):
+def _save_outputs(output_dir, predictions, input_paths, input_labels, projection, save_prediction_images=True, save_diff_images=True):
 
     if save_prediction_images:
         file_list = save_predicted_images_as_geotiff(predictions, input_paths,
-                                                     output_dir, "_val_predict.tif")
+                                                     output_dir, "_val_predict.tif", projection)
         gdal.BuildVRT(os.path.join(output_dir,
                       "val_predict.vrt"), file_list, addAlpha=True)
 
     if save_diff_images:
         file_list = save_predicted_images_as_geotiff(predictions - input_labels,
-                                                     input_paths, output_dir, "_val_diff.tif")
+                                                     input_paths, output_dir, "_val_diff.tif", projection)
         gdal.BuildVRT(os.path.join(output_dir,
                       "val_diff.vrt"), file_list, addAlpha=True)
 
 
-def save_predicted_images_as_geotiff(np_predictions, data_samples, output_dir, suffix=None):
+def save_predicted_images_as_geotiff(np_predictions, data_samples, output_dir, projection, suffix=None):
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -110,7 +110,7 @@ def save_predicted_images_as_geotiff(np_predictions, data_samples, output_dir, s
                                                   np_predictions.shape[1], np_predictions.shape[2], 1, gdal.GDT_Float32,
                                                   ['COMPRESS=LZW', 'PREDICTOR=2'])
 
-        transformation, projection = get_transformation_and_projection(
+        transformation = get_transformation(
             data_samples[i])
         ds.SetGeoTransform(transformation)
         ds.SetProjection(projection)
@@ -166,7 +166,7 @@ def create_contour_result(raster_path, output_dir, projection):
 
 
 def save_predicted_images_as_contour_vectors(np_predictions, data_samples,
-                                             output_dir, suffix, save_to):
+                                             output_dir, suffix, projection, save_to):
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -174,7 +174,7 @@ def save_predicted_images_as_contour_vectors(np_predictions, data_samples,
     # Export data as geojson contours
     raster_predictions = []
     for i in range(len(np_predictions)):
-        transformation, projection = get_transformation_and_projection(
+        transformation = get_transformation(
             data_samples[i])
 
         pred_array = np_predictions[i, :, :, 0]
@@ -223,15 +223,9 @@ def get_batch_output_dir(data_samples, output_dir, suffix):
     return prediction_output_dir_geojson
 
 
-def get_transformation_and_projection(data_sample):
+def get_transformation(data_sample):
     transformation = data_sample['image'].geo_transform
-    try:
-        projection = data_sample['image'].srs_wkt
-    except:
-        # Temp error fix due to proj library error
-        print("proj error getting projection - fallback to epsg:25832")
-        projection = ("EPSG:25832")
-    return transformation, projection
+    return transformation
 
 
 def createMetadataFile(created_datasets_path, checkpoint_path, output_dir, results):
