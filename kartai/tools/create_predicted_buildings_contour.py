@@ -62,6 +62,7 @@ def main(args):
     contour_output_dir = get_contour_predictions_dir(
         args.area_name, args.checkpoint_name)
 
+    print("---> Creating contour dataset from rasters")
     create_contour_result(raster_output_dir, contour_output_dir, projection)
 
     print("==== Contour dataset created ====")

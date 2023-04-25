@@ -153,12 +153,11 @@ def create_contour_result(raster_path, output_dir, projection):
     fieldDef = ogr.FieldDefn("elev", ogr.OFTReal)
     out_geojson_layer.CreateField(fieldDef)
 
-    #fixedLevelCount=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-    fixedLevelCount = [0, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+    fixed_level_count = [0, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
 
     ''' ContourGenerate(Band srcBand, double contourInterval, double contourBase,int fixedLevelCount, int useNoData, double noDataValue, Layer dstLayer, int idField, int elevField, GDALProgressFunc callback=0, void * callback_data=None) -> int '''
     gdal.ContourGenerate(srcBand=vrt_res.GetRasterBand(
-        1), contourInterval=0.0, contourBase=1.0, fixedLevelCount=fixedLevelCount, useNoData=0, noDataValue=0, dstLayer=out_geojson_layer, idField=0, elevField=1)
+        1), contourInterval=0.0, contourBase=1.0, fixedLevelCount=fixed_level_count, useNoData=0, noDataValue=0, dstLayer=out_geojson_layer, idField=0, elevField=1)
 
     out_geojson_source = None
 

@@ -11,7 +11,7 @@ import scipy as sp
 import env
 
 # ogr.UseExceptions()
-gdal.UseExceptions()
+#gdal.UseExceptions()
 
 
 class TileGrid:
@@ -196,7 +196,7 @@ class Tile:
             data_source = gdal.Open(file_path)
             self._geo_transform = data_source.GetGeoTransform()
             try:
-              self._srs_wkt = data_source.GetSpatialRef().ExportToWkt()
+                self._srs_wkt = data_source.GetSpatialRef().ExportToWkt()
             except Exception:
                 pass
             self._array = data_source.ReadAsArray()
@@ -362,7 +362,12 @@ class WMSImageSource(ImageSource):
                     shutil.copyfileobj(req.raw, out_file)
 
                 data_source = gdal.Open(image_path)
-                return data_source.ReadAsArray(), data_source.GetSpatialRef().ExportToWkt(), data_source.GetGeoTransform()
+                try:
+                    projection = data_source.GetSpatialRef().ExportToWkt()
+                except Exception:
+                    projection = None
+                    pass
+                return data_source.ReadAsArray(), projection, data_source.GetGeoTransform()
 
             else:
                 # If no image, print error to stdout
@@ -372,7 +377,12 @@ class WMSImageSource(ImageSource):
         # Use existing
         elif req.status_code == 304:
             data_source = gdal.Open(image_path)
-            return data_source.ReadAsArray(), data_source.GetSpatialRef().ExportToWkt(), data_source.GetGeoTransform()
+            try:
+                projection = data_source.GetSpatialRef().ExportToWkt()
+            except Exception:
+                projection = None
+                pass
+            return data_source.ReadAsArray(), projection, data_source.GetGeoTransform()
 
         # Handle error
         else:

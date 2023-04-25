@@ -254,9 +254,11 @@ Produce vector data:
 
 #Kristiansand raster test: 
 
-./kai create_predicted_buildings_dataset -n kristiansand-ilya --region training_data/regions/KristiansandBorderCropped.json -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -an krs
+./kai create_predicted_buildings_dataset --region training_data/regions/KristiansandBorderCropped.json -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -an kristiansand
 
 
 #Contour dataset:
 
-./kai create_predicted_buildings_contour -n kristiansand-ilya-contour --region training_data/regions/KristiansandBorderCropped.json -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -an kristiansand -mb 100 
+./kai create_predicted_buildings_contour --region training_data/regions/KristiansandBorderCropped.json -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -an kristiansand -mb 100
+
+./kai create_predicted_buildings_contour --region training_data/regions/verdal-sentrum.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -an verdal_sentrum
