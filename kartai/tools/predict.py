@@ -130,7 +130,7 @@ def create_contour_result(raster_path, output_dir, projection):
     for filename in raster_filenames:
         rasters.append(os.path.join(raster_path, filename))
 
-    vrt_output_dir = os.path.join(output_dir, "rasters_virtual.vrt")
+    vrt_output_dir = os.path.join(raster_path, "rasters_virtual.vrt")
     vrt_opt = gdal.BuildVRTOptions(addAlpha=True)
     vrt_res = gdal.BuildVRT(vrt_output_dir, rasters, options=vrt_opt)
 

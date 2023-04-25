@@ -11,7 +11,7 @@ def get_raster_predictions_dir(area_name, checkpoint_name):
 
 def get_contour_predictions_dir(area_name, checkpoint_name):
     contour_output_dir = os.path.join(env.get_env_variable(
-        "prediction_results_directory"), area_name, checkpoint_name, "countour")
+        "prediction_results_directory"), area_name, checkpoint_name, "contour")
     return contour_output_dir
 
 def get_vector_predictions_dir(area_name, checkpoint_name):

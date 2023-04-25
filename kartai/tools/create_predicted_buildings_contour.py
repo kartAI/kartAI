@@ -9,6 +9,8 @@ from kartai.utils.train_utils import get_existing_model_names
 
 
 def add_parser(subparser):
+    """Create contour vectors"""
+
     parser = subparser.add_parser(
         "create_predicted_buildings_contour",
         help="Create vector contour from ML predictions",
@@ -34,28 +36,20 @@ def add_parser(subparser):
     parser.add_argument("-c", "--config_path", type=str,
                         help="Data configuration file", required=True)
 
-    parser.add_argument("-df", "--skip_data_fetching", type=str, required=False, default='false',
-                        help="Whether to skip directly to running ML prediction, and not look for needed downloaded data. Typically used if you have already run production of dataset for same area, but with different model")
-
-    parser.add_argument("-s", "--save_to", type=str, choices=['local', 'azure'], default='local',
-                        help="Whether to save the resulting vector contour file to azure or locally")
+    '''NOT FULLY IMPLEMENTED YET parser.add_argument("-s", "--save_to", type=str, choices=['local', 'azure'], default='local',
+                        help="Whether to save the resulting vector contour file to azure or locally") '''
 
     parser.set_defaults(func=main)
 
 
 def main(args):
+    """Create contour vectors"""
     geom = parse_region_arg(args.region)
-
-    skip_data_fetching = False if args.skip_data_fetching == 'false' or args.skip_data_fetching == None else True
-    skip_to_postprocess = False  # TODO: get from args
-
-    print('skip_data_fetching', skip_data_fetching)
 
     projection = get_projection_from_config_path(args.config_path)
 
-    if skip_to_postprocess == False:
-        run_ml_predictions(args.checkpoint_name, args.area_name, projection,
-                           args.config_path, geom, batch_size=args.max_batch_size, skip_data_fetching=skip_data_fetching, save_to=args.save_to)
+    run_ml_predictions(args.checkpoint_name, args.area_name, projection,
+                       args.config_path, geom, batch_size=args.max_batch_size, skip_data_fetching=False, save_to="local")
 
     raster_output_dir = get_raster_predictions_dir(
         args.area_name, args.checkpoint_name)
