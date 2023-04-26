@@ -113,7 +113,7 @@ unet_large_building_area_d4_mish_focal_ndh
 
 TESTING:
 
-./kai create_predicted_buildings_dataset -n arendal_xl_resnet_mish --region training_data/regions/ArendalBorderCropped.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -p true -an arendal
+./kai create_predicted_buildings_dataset -n arendal_xl_resnet_mish --region training_data/regions/ArendalBorderCropped.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -p true -rn arendal
 
 #### Train:
 
@@ -232,33 +232,33 @@ Result table:
 
 Produce vector data:
 
-./kai create_predicted_buildings_dataset -n arendal_xl_resnet_mish --region training_data/regions/ArendalBorderCropped.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -an arendal
+./kai create_predicted_buildings_dataset -n arendal_xl_resnet_mish --region training_data/regions/ArendalBorderCropped.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn arendal
 
-./kai create_predicted_buildings_dataset -n test-region_xl_resnet_mish_2 --region training_data/regions/small_test_region.json -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -an small-test-region
-
-
-./kai create_predicted_buildings_dataset -n stream-resnet-norway --region  training_data/regions/small_test_region.json -cn stream-resnet-norway -c config/dataset/bygg-no-rules.json -an test_area
+./kai create_predicted_buildings_dataset -n test-region_xl_resnet_mish_2 --region training_data/regions/small_test_region.json -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn small-test-region
 
 
-./kai create_predicted_buildings_dataset -n krs-stream-resnet-norway --region  training_data/regions/KristiansandBorderCropped.json -cn stream-resnet-norway -c config/dataset/bygg-no-rules.json -an test_area
+./kai create_predicted_buildings_dataset -n stream-resnet-norway --region  training_data/regions/small_test_region.json -cn stream-resnet-norway -c config/dataset/bygg-no-rules.json -rn small_test_region
 
 
-./kai create_predicted_buildings_dataset -n 4-stream-resnet-norway --region  training_data/regions/small_test_region.json -cn 4-multiplex-resnet-norway -c config/dataset/bygg-no-rules.json -an test_area
+./kai create_predicted_buildings_dataset -n krs-stream-resnet-norway --region  training_data/regions/KristiansandBorderCropped.json -cn stream-resnet-norway -c config/dataset/bygg-no-rules.json -rn kristiansand
 
 
-./kai create_predicted_buildings_dataset -n 4-2-stream-resnet-norway --region  training_data/regions/small_test_region.json -cn 4-2-multiplex-resnet-norway -c config/dataset/bygg-no-rules.json -an test_area
+./kai create_predicted_buildings_dataset -n 4-stream-resnet-norway --region  training_data/regions/small_test_region.json -cn 4-multiplex-resnet-norway -c config/dataset/bygg-no-rules.json -rn kristiansand
 
-./kai create_predicted_buildings_dataset -n 7-stream-resnet-norway --region  training_data/regions/small_test_region.json -cn 7-multiplex-resnet-norway -c config/dataset/bygg-no-rules.json -an test_area
+
+./kai create_predicted_buildings_dataset -n 4-2-stream-resnet-norway --region  training_data/regions/small_test_region.json -cn 4-2-multiplex-resnet-norway -c config/dataset/bygg-no-rules.json -rn kristiansand
+
+./kai create_predicted_buildings_dataset -n 7-stream-resnet-norway --region  training_data/regions/small_test_region.json -cn 7-multiplex-resnet-norway -c config/dataset/bygg-no-rules.json -rn kristiansand
 
 
 
 #Kristiansand raster test: 
 
-./kai create_predicted_buildings_dataset --region training_data/regions/KristiansandBorderCropped.json -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -an kristiansand
+./kai create_predicted_buildings_dataset --region training_data/regions/KristiansandBorderCropped.json -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn kristiansand
 
 
 #Contour dataset:
 
-./kai create_predicted_buildings_contour --region training_data/regions/KristiansandBorderCropped.json -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -an kristiansand -mb 100
+./kai create_predicted_buildings_contour --region training_data/regions/KristiansandBorderCropped.json -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn kristiansand -mb 100
 
-./kai create_predicted_buildings_contour --region training_data/regions/verdal-sentrum.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -an verdal_sentrum
+./kai create_predicted_buildings_contour --region training_data/regions/verdal-sentrum.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn verdal_sentrum

@@ -440,15 +440,15 @@ Create a vector dataset with predicted data from a chosen ML model, on a chosen 
 Running creation of vectordata will download to wanted model from azure, before running prediction.
 
 This module will:
-- Create a dataset for the given region. Dataset is written to `training_data/created_datasets/for_prediction/{area_name}.json`
-- The chosen ML model (given with the -cn argument) will be used to run predicitons on each of the images in the created dataset, and save the resulting grey-scale rasters to `results/{area_name}/{checkpoint_name}/rasters`
-- Finally gdal_polygonize is used to create vector geojson layers for batches of data. These layers area written to `results/{area_name}/{checkpoint_name}/vectors`
+- Create a dataset for the given region. Dataset is written to `training_data/created_datasets/for_prediction/{region_name}.json`
+- The chosen ML model (given with the -cn argument) will be used to run predicitons on each of the images in the created dataset, and save the resulting grey-scale rasters to `results/{region_name}/{checkpoint_name}/rasters`
+- Finally gdal_polygonize is used to create vector geojson layers for batches of data. These layers area written to `results/{region_name}/{checkpoint_name}/vectors`
 
 Arguments:
 
 | Argument |Description  |  type |  required | default|                                                                                                                                                                                     |
 | -------- | :--------| -----| -----| -----| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| -an --area_name      | area name, often set to the same as the name of the region. This name will match the result directory. | string | yes                                                                                                                                                                        |
+| -rn --region_name      | region name, often set to the same as the name of the passed region. This name will match the result directory. | string | yes                                                                                                                                                                        |
 | -cn --checkpoint_name     | name of the trained model used for prediction   | string | yes
 | --region | Polygon or MultiPolygon describing data area with coordinates in same system as defined in config (i.e EPSG:25832), WKT or geojson (geometry) format, directly in a text string or as a filename | WKT, jsontext, or filename | yes |
 | -c      |Data config path | string | yes
@@ -461,19 +461,19 @@ Example:
 
 Unix:
 
-`./kai create_predicted_buildings_dataset -an karmoy -cn unet_model --region training_data/karmoy.json -c config/dataset/bygg-no-rules.json`
+`./kai create_predicted_buildings_dataset -rn karmoy -cn unet_model --region training_data/karmoy.json -c config/dataset/bygg-no-rules.json`
 
 Windows:
 
-`kai.bat create_predicted_buildings_dataset -an karmoy -cn unet_model --region training_data/karmoy.json -c config/dataset/bygg-no-rules.json`
+`kai.bat create_predicted_buildings_dataset -rn karmoy -cn unet_model --region training_data/karmoy.json -c config/dataset/bygg-no-rules.json`
 
 ### Create contour vectordata
 
 Create a contour vector dataset with predicted data from a chosen ML model, on a chosen region.
 This module will:
-- Create a dataset for the given region. Dataset is written to `training_data/created_datasets/for_prediction/{area_name}.json`
-- The chosen ML model (given with the -cn argument) will be used to run predicitons on each of the images in the created dataset, and save the resulting grey-scale rasters to `results/{area_name}/{checkpoint_name}/rasters`
-- Finally gdal_countour is used to create a contour geojson layer for the entire region (using a virtual raster layer produced in previous step). This layer is written to `results/{area_name}/{checkpoint_name}/contour`
+- Create a dataset for the given region. Dataset is written to `training_data/created_datasets/for_prediction/{region_name}.json`
+- The chosen ML model (given with the -cn argument) will be used to run predicitons on each of the images in the created dataset, and save the resulting grey-scale rasters to `results/{region_name}/{checkpoint_name}/rasters`
+- Finally gdal_countour is used to create a contour geojson layer for the entire region (using a virtual raster layer produced in previous step). This layer is written to `results/{region_name}/{checkpoint_name}/contour`
 
 The script will download to wanted model from azure if it is not already downloaded, before running prediction.
 
@@ -481,7 +481,7 @@ Arguments:
 
 | Argument |Description  |  type |  required | default|                                                                                                                                                                                     |
 | -------- | :--------| -----| -----| -----| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| -an --area_name      | area name, often set to the same as the name of the region. This name will match the result directory. | string | yes                                                                                                                                                                        |
+| -rn --region_name      | region name, often set to the same as the name of the passed region. This name will match the result directory. | string | yes                                                                                                                                                                        |
 | -cn --checkpoint_name     | name of the trained model used for prediction   | string | yes
 | --region | Polygon or MultiPolygon describing data area with coordinates in same system as defined in config (i.e EPSG:25832), WKT or geojson (geometry) format, directly in a text string or as a filename | WKT, jsontext, or filename | yes |
 | -c      |Data config path | string | yes
@@ -492,8 +492,8 @@ Example:
 
 Unix:
 
-`./kai create_predicted_buildings_contour -an karmoy -cn unet_model --region training_data/karmoy.json -c config/dataset/bygg-no-rules.json`
+`./kai create_predicted_buildings_contour -rn karmoy -cn unet_model --region training_data/karmoy.json -c config/dataset/bygg-no-rules.json`
 
 Windows:
 
-`kai.bat create_predicted_buildings_contour -an karmoy -cn unet_model --region training_data/karmoy.json -c config/dataset/bygg-no-rules.json`
+`kai.bat create_predicted_buildings_contour -rn karmoy -cn unet_model --region training_data/karmoy.json -c config/dataset/bygg-no-rules.json`

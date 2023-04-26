@@ -26,8 +26,8 @@ def add_parser(subparser):
                              "WKT, json text or filename\n"
                              "alternative to bounding box",
                         required=True)
-    parser.add_argument('-an', "--area-name", type=str,
-                        help="Name of area that is analyzed. Used to prefix output folder in azure",
+    parser.add_argument('-rn', "--region_name", type=str,
+                        help="Name of region that is analyzed. Used to prefix output folder in azure",
                         required=True)
     parser.add_argument("-mb", "--max_batch_size", type=int,
                         help="Max batch size for creating raster images",
@@ -48,13 +48,13 @@ def main(args):
 
     projection = get_projection_from_config_path(args.config_path)
 
-    run_ml_predictions(args.checkpoint_name, args.area_name, projection,
+    run_ml_predictions(args.checkpoint_name, args.region_name, projection,
                        args.config_path, geom, batch_size=args.max_batch_size, skip_data_fetching=False, save_to="local")
 
     raster_output_dir = get_raster_predictions_dir(
-        args.area_name, args.checkpoint_name)
+        args.region_name, args.checkpoint_name)
     contour_output_dir = get_contour_predictions_dir(
-        args.area_name, args.checkpoint_name)
+        args.region_name, args.checkpoint_name)
 
     print("---> Creating contour dataset from rasters")
     create_contour_result(raster_output_dir, contour_output_dir, projection)

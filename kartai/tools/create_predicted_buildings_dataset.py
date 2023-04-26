@@ -23,8 +23,8 @@ def add_parser(subparser):
                              "WKT, json text or filename\n"
                              "alternative to bounding box",
                         required=True)
-    parser.add_argument('-an', "--area-name", type=str,
-                        help="Name of area that is analyzed. Used to prefix output folder in azure",
+    parser.add_argument('-rn', "--region_name", type=str,
+                        help="Name of region that is analyzed. Used to prefix output folder in azure",
                         required=True)
     parser.add_argument("-mb", "--max_mosaic_batch_size", type=int,
                         help="Max batch size for creating mosaic of the predictions",
@@ -55,5 +55,5 @@ def main(args):
     print('only_raw_predictions', only_raw_predictions)
     print('skip_to_postprocess', skip_to_postprocess)
 
-    create_building_dataset(geom, args.checkpoint_name, args.area_name,
+    create_building_dataset(geom, args.checkpoint_name, args.region_name,
                             args.config_path, only_raw_predictions=only_raw_predictions, skip_to_postprocess=skip_to_postprocess, max_mosaic_batch_size=args.max_mosaic_batch_size, save_to=args.save_to)

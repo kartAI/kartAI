@@ -26,16 +26,16 @@ from kartai.utils.prediction_utils import get_raster_predictions_dir, get_vector
 # Used by API
 
 
-def create_predicted_buildings_dataset(geom, checkpoint_name, data_config_path, area_name):
+def create_predicted_buildings_dataset(geom, checkpoint_name, data_config_path, region_name):
     skip_to_postprocess = False  # For testing
 
     if skip_to_postprocess == False:
-        run_ml_predictions(checkpoint_name, area_name,
+        run_ml_predictions(checkpoint_name, region_name,
                            config_path=data_config_path, geom=geom)
 
         time.sleep(2)  # Wait for complete saving to disk
 
-    raster_dir = get_raster_predictions_dir(area_name, checkpoint_name)
+    raster_dir = get_raster_predictions_dir(region_name, checkpoint_name)
     print('Starting postprocess')
     predictions_path = sorted(
         glob.glob(raster_dir))
@@ -46,7 +46,7 @@ def create_predicted_buildings_dataset(geom, checkpoint_name, data_config_path, 
     return all_predicted_buildings_dataset
 
 
-def create_building_dataset(geom, checkpoint_name, area_name, data_config_path, only_raw_predictions, skip_to_postprocess, max_mosaic_batch_size=200, save_to='azure'):
+def create_building_dataset(geom, checkpoint_name, region_name, data_config_path, only_raw_predictions, skip_to_postprocess, max_mosaic_batch_size=200, save_to='azure'):
 
     with open(data_config_path, "r") as config_file:
         config = json.load(config_file)
@@ -54,19 +54,20 @@ def create_building_dataset(geom, checkpoint_name, area_name, data_config_path, 
     if not skip_to_postprocess:
         projection = get_projection_from_config_path(data_config_path)
 
-        run_ml_predictions(checkpoint_name, area_name, projection,
+        run_ml_predictions(checkpoint_name, region_name, projection,
                            config_path=data_config_path, geom=geom)
 
         time.sleep(2)  # Wait for complete saving to disk
 
     print('Starting postprocess')
 
-    vector_output_dir = get_vector_predictions_dir(area_name, checkpoint_name)
+    vector_output_dir = get_vector_predictions_dir(
+        region_name, checkpoint_name)
     raster_predictions_path = get_raster_predictions_dir(
-        area_name, checkpoint_name)
+        region_name, checkpoint_name)
 
     produce_vector_buildings(
-        vector_output_dir, raster_predictions_path, config, max_mosaic_batch_size, only_raw_predictions, f"{area_name}_{checkpoint_name}", save_to)
+        vector_output_dir, raster_predictions_path, config, max_mosaic_batch_size, only_raw_predictions, f"{region_name}_{checkpoint_name}", save_to)
 
 
 def save_dataset(data, filename, output_dir, modelname, save_to):
@@ -84,20 +85,21 @@ def save_dataset_locally(data, filename, output_dir):
     file.close()
 
 
-def run_ml_predictions(checkpoint_name, area_name, projection, config_path=None, geom=None, skip_data_fetching=False, tupple_data=False, download_labels=False, batch_size=8, save_to='local'):
+def run_ml_predictions(checkpoint_name, region_name, projection, config_path=None, geom=None, skip_data_fetching=False, tupple_data=False, download_labels=False, batch_size=8, save_to='local'):
     from kartai.tools.predict import save_predicted_images_as_geotiff
 
-    dataset_path_to_predict = get_dataset_to_predict_dir(area_name)
+    dataset_path_to_predict = get_dataset_to_predict_dir(region_name)
 
     if skip_data_fetching == False:
-        prepare_dataset_to_predict(area_name, geom, config_path)
+        prepare_dataset_to_predict(region_name, geom, config_path)
 
-    raster_output_dir = get_raster_predictions_dir(area_name, checkpoint_name)
+    raster_output_dir = get_raster_predictions_dir(
+        region_name, checkpoint_name)
 
     raster_predictions_already_exist = os.path.exists(raster_output_dir)
     if(raster_predictions_already_exist):
         print(
-            f'Folder for raster predictions for {area_name} created by {checkpoint_name} already exist.')
+            f'Folder for raster predictions for {region_name} created by {checkpoint_name} already exist.')
         skip_running_prediction = input(
             "Do you want to skip predictions? Answer 'y' to skip creating new predictions, and 'n' if you want to produce new ones: ")
         if skip_running_prediction == 'y':
@@ -148,7 +150,7 @@ def run_ml_predictions(checkpoint_name, area_name, projection, config_path=None,
                                          raster_output_dir, projection)
 
 
-def get_dataset_to_predict_dir(area_name):
+def get_dataset_to_predict_dir(region_name):
     dataset_dir = env.get_env_variable('created_datasets_directory')
 
     prediction_dataset_dir = os.path.join(
@@ -157,19 +159,19 @@ def get_dataset_to_predict_dir(area_name):
         os.makedirs(prediction_dataset_dir)
 
     dataset_path_to_predict = os.path.join(
-        prediction_dataset_dir, area_name+".json")
+        prediction_dataset_dir, region_name+".json")
 
     return dataset_path_to_predict
 
 
-def prepare_dataset_to_predict(area_name, geom, config_path):
+def prepare_dataset_to_predict(region_name, geom, config_path):
     from kartai.dataset.PredictionArea import fetch_data_to_predict
 
-    dataset_path_to_predict = get_dataset_to_predict_dir(area_name)
+    dataset_path_to_predict = get_dataset_to_predict_dir(region_name)
 
     # Create ortofoto tiles for bbox area
     if(os.path.exists(dataset_path_to_predict)):
-        print(f'A dataset for area name {area_name} already exist')
+        print(f'A dataset for area name {region_name} already exist')
         skip_dataset_fetching = input(
             "Do you want to use the previously defined dataset for this area name? Answer 'y' to skip creating dataset, and 'n' if you want to produce a new one: ")
         if not skip_dataset_fetching == 'y':
