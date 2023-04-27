@@ -185,18 +185,19 @@ class DatasetBuilder:
             if(img_set.rule and img_set.rule["type"] == "ModelConfidence"):
                 hasModelConfidenceRule = True
 
-        #has_reached_start = True
+        #has_reached_start = False
         for i, j in region_data:
             print(i, j)
+
             ''' 
-            Keep this - useful if training data production stops, and you dont want to start all over
-            if(not (i == 8 and j == 1942) and has_reached_start == False):
+            # 690 4569
+            # Keep this - useful if training data production stops, and you dont want to start all over
+            if(not (i == 678 and j == 4443) and has_reached_start == False):
                 print('skip ij:', i, j)
                 continue
             else:
-                print('Continue production at: ', i, j)
-                has_reached_start = True
-            '''
+                has_reached_start = True '''
+
             if(max_size <= number_of_examples):
                 print(
                     "\n !! Dataset reached its max size, stopped dataset production \n")
