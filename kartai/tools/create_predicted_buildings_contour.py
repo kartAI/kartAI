@@ -35,6 +35,8 @@ def add_parser(subparser):
 
     parser.add_argument("-c", "--config_path", type=str,
                         help="Data configuration file", required=True)
+    parser.add_argument("-si", "--start_iteration", type=int,
+                        help="Start data production from this iteration. Only used if dataproduction stops, and you want to start from crahs point. NB! the resulting datasetfile will not include data before this point. ", required=False)
 
     '''NOT FULLY IMPLEMENTED YET parser.add_argument("-s", "--save_to", type=str, choices=['local', 'azure'], default='local',
                         help="Whether to save the resulting vector contour file to azure or locally") '''
@@ -49,7 +51,7 @@ def main(args):
     projection = get_projection_from_config_path(args.config_path)
 
     run_ml_predictions(args.checkpoint_name, args.region_name, projection,
-                       args.config_path, geom, batch_size=args.max_batch_size, skip_data_fetching=False, save_to="local")
+                       args.config_path, geom, batch_size=args.max_batch_size, skip_data_fetching=False, start_iteration=args.start_iteration)
 
     raster_output_dir = get_raster_predictions_dir(
         args.region_name, args.checkpoint_name)

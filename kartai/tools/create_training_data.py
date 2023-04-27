@@ -57,7 +57,7 @@ def convert_tileset(tileset):
     return conv_tileset
 
 
-def create_training_data(training_dataset_name, config_file_path, eager_load=False, confidence_threshold=None, eval_model_checkpoint=None, region=None, x_min=None, x_max=None, y_min=None, y_max=None):
+def create_training_data(training_dataset_name, config_file_path, eager_load=False, confidence_threshold=None, eval_model_checkpoint=None, region=None, x_min=None, x_max=None, y_min=None, y_max=None, start_iteration=None):
     training_dataset_id = uuid.uuid4()
 
     cached_data_dir = get_env_variable("cached_data_directory")
@@ -80,15 +80,15 @@ def create_training_data(training_dataset_name, config_file_path, eager_load=Fal
     reg = get_dataset_region(tile_grid, region_path=region, x_min=x_min,
                              y_min=y_min, x_max=x_max, y_max=y_max)
 
-    image_sources, train_set, valid_set, test_set = getImageSources(
-        config, cached_data_dir, tile_grid, eager_load=eager_load, confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint, region=reg)
+    image_sources, train_set, valid_set, test_set = get_image_sources(
+        config, cached_data_dir, tile_grid, eager_load=eager_load, confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint, region=reg, start_iteration=start_iteration)
 
     print(
         f"-------creating dataset ------- \n name: {training_dataset_name}")
 
     # Find general datasets, to be splitted into train / valid / test
-    dataset = createDataset(image_sources, config, config["ImageSources"], region=reg, eager_load=eager_load,
-                            confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint)
+    dataset = create_dataset(image_sources, config, config["ImageSources"], region=reg, eager_load=eager_load,
+                             confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint, start_iteration=start_iteration)
     # Split into training, test, validation
     training_fraction, validation_fraction = 0.8, 0.1
 
@@ -179,7 +179,7 @@ def create_training_data(training_dataset_name, config_file_path, eager_load=Fal
     return output_directory
 
 
-def createDataset(image_sources, config, image_source_config, region, eager_load, confidence_threshold=None, eval_model_checkpoint=None):
+def create_dataset(image_sources, config, image_source_config, region, eager_load, confidence_threshold=None, eval_model_checkpoint=None, start_iteration=None):
     if "ImageSets" not in config or not config["ImageSets"]:
         print("No image sets")
         return []
@@ -227,12 +227,12 @@ def createDataset(image_sources, config, image_source_config, region, eager_load
     image_sets = getImageSets(config, image_sources)
     dataset_builder = DatasetBuilder(image_sets)
     if("ProjectArguments" in config):
-        return list(dataset_builder.assemble_data(region, image_source_config, project_config=config["ProjectArguments"], confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint, eager_load=eager_load))
+        return list(dataset_builder.assemble_data(region, image_source_config, project_config=config["ProjectArguments"], confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint, eager_load=eager_load, start_iteration=start_iteration))
     else:
-        return list(dataset_builder.assemble_data(region, image_source_config, confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint, eager_load=eager_load))
+        return list(dataset_builder.assemble_data(region, image_source_config, confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint, eager_load=eager_load, start_iteration=start_iteration))
 
 
-def getImageSources(config, cache_root, tile_grid, eager_load, confidence_threshold=None, eval_model_checkpoint=None, region=None):
+def get_image_sources(config, cache_root, tile_grid, eager_load, confidence_threshold=None, eval_model_checkpoint=None, region=None, start_iteration=None):
     image_sources = {}
     for source_config in config["ImageSources"]:
         source = ImageSourceFactory.create(
@@ -245,14 +245,14 @@ def getImageSources(config, cache_root, tile_grid, eager_load, confidence_thresh
     # Find presplitted train / valid / test
     train_set, valid_set, test_set = [], [], []
     if "TrainingSet" in config:
-        train_set = createDataset(
-            image_sources, config["TrainingSet"], config["ImageSources"], region=region, eager_load=eager_load, confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint)
+        train_set = create_dataset(
+            image_sources, config["TrainingSet"], config["ImageSources"], region=region, eager_load=eager_load, confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint, start_iteration=start_iteration)
     if "ValidationSet" in config:
-        valid_set = createDataset(
-            image_sources, config["ValidationSet"], config["ImageSources"], region=region, eager_load=eager_load, confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint)
+        valid_set = create_dataset(
+            image_sources, config["ValidationSet"], config["ImageSources"], region=region, eager_load=eager_load, confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint, start_iteration=start_iteration)
     if "TestSet" in config:
-        test_set = createDataset(
-            image_sources, config["TestSet"], config["ImageSources"], region=region, eager_load=eager_load, confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint)
+        test_set = create_dataset(
+            image_sources, config["TestSet"], config["ImageSources"], region=region, eager_load=eager_load, confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint, start_iteration=start_iteration)
 
     return image_sources, train_set, valid_set, test_set
 

@@ -85,13 +85,16 @@ def save_dataset_locally(data, filename, output_dir):
     file.close()
 
 
-def run_ml_predictions(checkpoint_name, region_name, projection, config_path=None, geom=None, skip_data_fetching=False, tupple_data=False, download_labels=False, batch_size=8, save_to='local'):
+def run_ml_predictions(checkpoint_name, region_name, projection, config_path=None, geom=None, skip_data_fetching=False, tupple_data=False, download_labels=False, batch_size=8, start_iteration=None):
     from kartai.tools.predict import save_predicted_images_as_geotiff
 
     dataset_path_to_predict = get_dataset_to_predict_dir(region_name)
 
     if skip_data_fetching == False:
-        prepare_dataset_to_predict(region_name, geom, config_path)
+        prepare_dataset_to_predict(
+            region_name, geom, config_path, start_iteration=start_iteration)
+        if(start_iteration):
+            exit("exit code due to start_iteration")
 
     raster_output_dir = get_raster_predictions_dir(
         region_name, checkpoint_name)
@@ -164,7 +167,7 @@ def get_dataset_to_predict_dir(region_name):
     return dataset_path_to_predict
 
 
-def prepare_dataset_to_predict(region_name, geom, config_path):
+def prepare_dataset_to_predict(region_name, geom, config_path, start_iteration=None):
     from kartai.dataset.PredictionArea import fetch_data_to_predict
 
     dataset_path_to_predict = get_dataset_to_predict_dir(region_name)
@@ -176,9 +179,10 @@ def prepare_dataset_to_predict(region_name, geom, config_path):
             "Do you want to use the previously defined dataset for this area name? Answer 'y' to skip creating dataset, and 'n' if you want to produce a new one: ")
         if not skip_dataset_fetching == 'y':
             fetch_data_to_predict(
-                geom, config_path, dataset_path_to_predict)
+                geom, config_path, dataset_path_to_predict, start_iteration=start_iteration)
     else:
-        fetch_data_to_predict(geom, config_path, dataset_path_to_predict)
+        fetch_data_to_predict(
+            geom, config_path, dataset_path_to_predict, start_iteration=start_iteration)
 
 
 def get_ml_model(checkpoint_name):

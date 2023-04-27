@@ -156,21 +156,18 @@ class DatasetBuilder:
         return True
 
     def assemble_data(self, region, source_config, project_config=None, confidence_threshold=None,
-                      eval_model_checkpoint=None, eager_load=False):
+                      eval_model_checkpoint=None, eager_load=False, start_iteration=None):
         """Generate cached images for an area, possibly satisfying the test implemented in the callable
          'evaluate' and return list of examples. An 'example' is a dictionary mapping image set names to
          image paths in the cache. The 'evaluate(example)' should return True if the example is good.
          For eager loading of data set eager_load=True"""
 
-        number_of_examples = 0  # Images added to dataset
+        # Images added to dataset
+        number_of_examples = 0 + start_iteration if start_iteration else 0
         skipped_images = 0  # Images looked at but not added due to dataset rule
 
         # Stop searching for confidence images if dataset not filled after this
         search_limit = 10000
-
-        max_size = float("inf")
-        if(project_config and "max_size" in project_config):
-            max_size = int(project_config["max_size"])
 
         # If running data teacher - check for infinite search, meaning the threshold is set too strict and no data fits the rule
 
@@ -185,20 +182,32 @@ class DatasetBuilder:
             if(img_set.rule and img_set.rule["type"] == "ModelConfidence"):
                 hasModelConfidenceRule = True
 
-        #has_reached_start = False
-        for i, j in region_data:
-            print(i, j)
+        has_reached_start = True if not start_iteration else False
 
-            ''' 
-            # 690 4569
-            # Keep this - useful if training data production stops, and you dont want to start all over
-            if(not (i == 678 and j == 4443) and has_reached_start == False):
-                print('skip ij:', i, j)
+        region_data_list = list(region_data)
+
+        print("start_iteration", start_iteration)
+        # sum(1 for _ in region_data)
+        num_images_in_dataset = len(region_data_list)
+        dataset_size = int(project_config["max_size"]) if (
+            project_config and "max_size" in project_config) else num_images_in_dataset
+
+        print("num images in region", num_images_in_dataset)
+        if(start_iteration > num_images_in_dataset):
+            raise Exception(
+                "Start iteration is higher than number of images in dataset")
+
+        iteration_num = 0
+        for i, j in region_data_list:
+            if(has_reached_start == False and iteration_num < start_iteration):
+                print('skip iteration (ij):', iteration_num, i, j)
+                iteration_num += 1
                 continue
             else:
-                has_reached_start = True '''
+                has_reached_start = True
 
-            if(max_size <= number_of_examples):
+            print(i, j)
+            if(dataset_size <= number_of_examples):
                 print(
                     "\n !! Dataset reached its max size, stopped dataset production \n")
                 break
@@ -218,8 +227,8 @@ class DatasetBuilder:
             else:
                 if self.evaluate_example(example, source_config, confidence_threshold, eval_model_checkpoint):
                     number_of_examples += 1
-                    print(
-                        f"\nAdded to dataset, total instances: {number_of_examples} of {max_size}")
+                    print(f"\nAdded to dataset, total instances: {number_of_examples} of {dataset_size}.") if not start_iteration else print(
+                        f"\nAdded to dataset, total instances: {number_of_examples} of {dataset_size}, but started iteration at {start_iteration}.")
                     if eager_load:
                         for k, v in example.items():
                             if v.array is None:
