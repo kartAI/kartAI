@@ -225,11 +225,13 @@ def createDataset(image_sources, config, image_source_config, region, eager_load
         exit(-1)
 
     image_sets = getImageSets(config, image_sources)
-    dataset_builder = DatasetBuilder(image_sets)
-    if("ProjectArguments" in config):
-        return list(dataset_builder.assemble_data(region, image_source_config, project_config=config["ProjectArguments"], confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint, eager_load=eager_load))
-    else:
-        return list(dataset_builder.assemble_data(region, image_source_config, confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint, eager_load=eager_load))
+    project_config = config["ProjectArguments"] if "ProjectArguments" in config else None
+    dataset_builder = DatasetBuilder(image_sets, image_source_config,
+                                     project_config=project_config,
+                                     confidence_threshold=confidence_threshold,
+                                     eval_model_checkpoint=eval_model_checkpoint,
+                                     eager_load=eager_load)
+    return list(dataset_builder.assemble_data(region))
 
 
 def getImageSources(config, cache_root, tile_grid, eager_load, confidence_threshold=None, eval_model_checkpoint=None, region=None):

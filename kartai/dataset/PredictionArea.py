@@ -21,13 +21,9 @@ def fetch_data_to_predict(geom, config_path, output_path):
     image_sets = getImageSets(
         config, image_sources)
 
-    dataset_builder = DatasetBuilder(image_sets)
-    if("ProjectArguments" in config):
-        dataset = list(dataset_builder.assemble_data(
-            Region(geom), config["ImageSources"], project_config=config["ProjectArguments"], eager_load=True))
-    else:
-        dataset = list(dataset_builder.assemble_data(
-            Region(geom), config["ImageSources"], eager_load=True))
+    project_config = config["ProjectArguments"] if "ProjectArguments" in config else None
+    dataset_builder = DatasetBuilder(image_sets, config["ImageSources"], project_config=project_config, eager_load=True)
+    dataset = list(dataset_builder.assemble_data(Region(geom)))
 
     # Save file image references
     with open(output_path, "w") as file:

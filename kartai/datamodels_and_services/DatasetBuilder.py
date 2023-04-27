@@ -31,7 +31,8 @@ class DatasetBuilder:
 
     """
 
-    def __init__(self, image_set_dict):
+    def __init__(self, image_set_dict, source_config, project_config=None, confidence_threshold=None,
+                      eval_model_checkpoint=None, eager_load=False):
         """Constructor for DatasetBuilder.
         Takes a dictionary of ImageSets. The dictionary keys are used for indexing data samples in the resulting
         data sample list"""
@@ -56,7 +57,30 @@ class DatasetBuilder:
                 raise ValueError("Image sets does not have the same tile_grid")
             self.image_set_dict[img_set_name] = img_set
 
-    def _evaluate_rule(self, img, rule, source_config, confidence_threshold, eval_model_checkpoint):
+        self.has_model_confidence_rule = False
+        for img_set_name, img_set in self.image_set_dict.items():
+            if(img_set.rule and img_set.rule["type"] == "ModelConfidence"):
+                self.has_model_confidence_rule = True
+
+        self.source_config = source_config
+
+        self.max_size = float("inf")
+        if project_config and "max_size" in project_config:
+            self.max_size = int(project_config["max_size"])
+
+        self.shuffle_data = \
+            project_config and "shuffle_data" in project_config and project_config["shuffle_data"] == "True"
+
+        self.num_processes = None
+        if not self.has_model_confidence_rule and project_config and "num_processes" in project_config:
+            self.num_processes = int(project_config["num_processes"])
+
+        self.confidence_threshold = confidence_threshold
+        self.eval_model_checkpoint = eval_model_checkpoint
+        self.eager_load = eager_load
+
+
+    def _evaluate_rule(self, img, rule):
         np_band = img.array
         if np_band is None:
             print(f"Bilde {img.file_path} ikke lastet")
@@ -64,13 +88,13 @@ class DatasetBuilder:
 
         if rule["type"] == "And":
             for r in rule["rules"]:
-                if not self._evaluate_rule(img, r, source_config, confidence_threshold, eval_model_checkpoint):
+                if not self._evaluate_rule(img, r):
                     return False
             return True
 
         elif rule["type"] == "Or":
             for r in rule["rules"]:
-                if self._evaluate_rule(img, r, source_config, confidence_threshold, eval_model_checkpoint):
+                if self._evaluate_rule(img, r):
                     return True
             return False
 
@@ -114,7 +138,7 @@ class DatasetBuilder:
                 WMSDataName = ""
                 LaserDataName = ""
 
-                for source in source_config:
+                for source in self.source_config:
                     if source["type"] == "PostgresImageSource":
                         vectorDataName = source["name"]
                     if source["type"] == "WMSImageSource":
@@ -134,7 +158,7 @@ class DatasetBuilder:
                 raise Exception("Could not set correct data paths")
             with open(rule["data_generator"], "r") as file:
                 data_generator_config = json.load(file)
-            if(model_is_confident(data_generator_config, ortofoto_path, lidar_path, img, eval_model_checkpoint, confidence_threshold)):
+            if(model_is_confident(data_generator_config, ortofoto_path, lidar_path, img, self.eval_model_checkpoint, self.confidence_threshold)):
                 return False
             else:
                 return True
@@ -142,7 +166,7 @@ class DatasetBuilder:
         raise NotImplementedError(
             f'Rule type {rule["type"]} is not implemented')
 
-    def evaluate_example(self, example, source_config, confidence_threshold, eval_model_checkpoint):
+    def evaluate_example(self, example):
         for img_set_name, img_set in self.image_set_dict.items():
             if not img_set.rule:
                 continue
@@ -150,13 +174,28 @@ class DatasetBuilder:
                 return False
             img = example[img_set_name]
 
-            if not self._evaluate_rule(img, img_set.rule, source_config, confidence_threshold, eval_model_checkpoint):
+            if not self._evaluate_rule(img, img_set.rule):
                 return False
 
         return True
 
-    def assemble_data(self, region, source_config, project_config=None, confidence_threshold=None,
-                      eval_model_checkpoint=None, eager_load=False):
+    def load_example(self, i, j):
+        example = {}
+        for img_set_name in self.image_set_dict:
+            img_set = self.image_set_dict[img_set_name]
+            img = Tile(img_set.image_source, i, j, img_set.tile_size)
+            example[img_set_name] = img
+        else:
+            if self.evaluate_example(example):
+                if self.eager_load:
+                    for k, v in example.items():
+                        if v.array is None:
+                            raise ValueError(
+                                f"Component {k} not loaded in example {i},{j}")
+                return example
+        return None
+
+    def assemble_data(self, region):
         """Generate cached images for an area, possibly satisfying the test implemented in the callable
          'evaluate' and return list of examples. An 'example' is a dictionary mapping image set names to
          image paths in the cache. The 'evaluate(example)' should return True if the example is good.
@@ -168,22 +207,13 @@ class DatasetBuilder:
         # Stop searching for confidence images if dataset not filled after this
         search_limit = 10000
 
-        max_size = float("inf")
-        if(project_config and "max_size" in project_config):
-            max_size = int(project_config["max_size"])
-
         # If running data teacher - check for infinite search, meaning the threshold is set too strict and no data fits the rule
 
         region_data = self.tile_grid.generate_ij(region)
-        if(project_config and "shuffle_data" in project_config and project_config["shuffle_data"] == "True"):
+        if self.shuffle_data:
             # Have to convert to list in order to shuffle data
             region_data = list(region_data)
             random.shuffle(region_data)
-
-        hasModelConfidenceRule = False
-        for img_set_name, img_set in self.image_set_dict.items():
-            if(img_set.rule and img_set.rule["type"] == "ModelConfidence"):
-                hasModelConfidenceRule = True
 
         #has_reached_start = False
         for i, j in region_data:
@@ -198,35 +228,22 @@ class DatasetBuilder:
             else:
                 has_reached_start = True '''
 
-            if(max_size <= number_of_examples):
+            if(self.max_size <= number_of_examples):
                 print(
                     "\n !! Dataset reached its max size, stopped dataset production \n")
                 break
 
-            if(hasModelConfidenceRule and skipped_images > search_limit):
+            if(self.has_model_confidence_rule and skipped_images > search_limit):
                 print(
                     f"\n !! Dataset stopped at {number_of_examples} instances, stopped after {search_limit} instances that was skipped due to confidence rule \n")
                 break
 
-            example = {}
-            for img_set_name in self.image_set_dict:
-                img_set = self.image_set_dict[img_set_name]
-                img = Tile(img_set.image_source, i, j, img_set.tile_size)
-                if not img:
-                    break
-                example[img_set_name] = img
+            example = self.load_example(i, j)
+            if example:
+                number_of_examples += 1
+                print(
+                    f"\nAdded to dataset, total instances: {number_of_examples} of {self.max_size}")
+                yield example
             else:
-                if self.evaluate_example(example, source_config, confidence_threshold, eval_model_checkpoint):
-                    number_of_examples += 1
-                    print(
-                        f"\nAdded to dataset, total instances: {number_of_examples} of {max_size}")
-                    if eager_load:
-                        for k, v in example.items():
-                            if v.array is None:
-                                raise ValueError(
-                                    f"Component {k} not loaded in example {number_of_examples}")
-
-                    yield example
-                else:
-                    print("Skipping image, didn't pass dataset rule")
-                    skipped_images += 1
+                print("Skipping image, didn't pass dataset rule")
+                skipped_images += 1
