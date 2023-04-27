@@ -193,7 +193,7 @@ class DatasetBuilder:
             project_config and "max_size" in project_config) else num_images_in_dataset
 
         print("num images in region", num_images_in_dataset)
-        if(start_iteration > num_images_in_dataset):
+        if(start_iteration and start_iteration > num_images_in_dataset):
             raise Exception(
                 "Start iteration is higher than number of images in dataset")
 
