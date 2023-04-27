@@ -30,12 +30,18 @@ def add_parsers():
     elif tool == "create_predicted_buildings_dataset":
         from kartai.tools import create_predicted_buildings_dataset
         create_predicted_buildings_dataset.add_parser(subparser)
+    elif tool == "create_predicted_buildings_contour":
+        from kartai.tools import create_predicted_buildings_contour
+        create_predicted_buildings_contour.add_parser(subparser)
     elif tool == "data_teacher":
         from kartai.tools import data_teacher
         data_teacher.add_parser(subparser)
     elif tool == "upload_model":
         from kartai.tools import upload_model
         upload_model.add_parser(subparser)
+    elif tool == "upload_files_in_dir":
+        from kartai.tools import upload_files_in_dir
+        upload_files_in_dir.add_parser(subparser)
     elif tool == "full_analysis":
         from kartai.tools import full_analysis
         full_analysis.add_parser(subparser)

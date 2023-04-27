@@ -15,6 +15,7 @@ from kartai.dataset.create_building_dataset import get_all_predicted_buildings_d
 from kartai.dataset.performance_count import get_performance_count_for_detected_buildings
 from kartai.tools.create_training_data import create_training_data
 from kartai.dataset.Iou_calculations import get_IoU_for_ksand
+from kartai.utils.prediction_utils import get_raster_predictions_dir
 
 
 def add_parser(subparser):
@@ -48,8 +49,8 @@ def download_all_models():
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
-    blobstorage.downloadTrainedModels()
-    models = blobstorage.getAvailableTrainedModels()
+    blobstorage.download_trained_models()
+    models = blobstorage.get_available_trained_models()
     return models
 
 
@@ -157,11 +158,11 @@ def run_ksand_tests(models, crs):
         print(f'Start proccess for model {iteration} of {len(models)}')
         # Clean current content of folder to make sure only current batch is in folder
         empty_folder(predictions_output_dir)
-        run_ml_predictions(model_name, predictions_output_dir, output_predictions_name,
+        run_ml_predictions(model_name, predictions_output_dir,
                            skip_data_fetching=True, dataset_path_to_predict=ksand_dataset_path, tupple_data=tupple_data, download_labels=True)
 
         predictions_path = sorted(
-            glob.glob(predictions_output_dir+f"/*{output_predictions_name}"))
+            glob.glob(get_raster_predictions_dir("ksand_test_area", model)))
 
         prediction_dataset_gdf = get_all_predicted_buildings_dataset(
             predictions_path, crs)

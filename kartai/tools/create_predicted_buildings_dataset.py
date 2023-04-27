@@ -18,15 +18,13 @@ def add_parser(subparser):
     parser.add_argument('-cn', '--checkpoint_name', type=str, choices=existing_trained_model_names,
                         help='Name for checkpoint file to use for prediction', required=True)
 
-    parser.add_argument('-n', '--output_name', type=str,
-                        help='Name for output dataset', required=True)
     parser.add_argument("--region", type=str,
                         help="Polygon boundary of training area\n"
                              "WKT, json text or filename\n"
                              "alternative to bounding box",
                         required=True)
-    parser.add_argument('-an', "--area-name", type=str,
-                        help="Name of area that is analyzed. Used to prefix output folder in azure",
+    parser.add_argument('-rn', "--region_name", type=str,
+                        help="Name of region that is analyzed. Used to prefix output folder in azure",
                         required=True)
     parser.add_argument("-mb", "--max_mosaic_batch_size", type=int,
                         help="Max batch size for creating mosaic of the predictions",
@@ -48,8 +46,6 @@ def add_parser(subparser):
 
 
 def main(args):
-    output_dir = os.path.join(env.get_env_variable(
-        "prediction_results_directory"), args.output_name)
 
     geom = parse_region_arg(args.region)
 
@@ -59,5 +55,5 @@ def main(args):
     print('only_raw_predictions', only_raw_predictions)
     print('skip_to_postprocess', skip_to_postprocess)
 
-    create_building_dataset(geom, args.checkpoint_name, args.area_name,
-                            args.config_path, only_raw_predictions=only_raw_predictions, skip_to_postprocess=skip_to_postprocess, output_dir=output_dir, max_mosaic_batch_size=args.max_mosaic_batch_size, save_to=args.save_to)
+    create_building_dataset(geom, args.checkpoint_name, args.region_name,
+                            args.config_path, only_raw_predictions=only_raw_predictions, skip_to_postprocess=skip_to_postprocess, max_mosaic_batch_size=args.max_mosaic_batch_size, save_to=args.save_to)

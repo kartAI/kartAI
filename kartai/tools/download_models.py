@@ -20,4 +20,4 @@ def main(args):
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
-    blobstorage.downloadTrainedModels()
+    blobstorage.download_trained_models()

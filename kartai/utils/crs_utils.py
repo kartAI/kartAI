@@ -1,13 +1,22 @@
 import json
+from osgeo import osr
 
 
-def get_defined_crs_from_config_path(data_config_path):
+def get_defined_crs_from_config_path(data_config_path, only_numbers=False):
     with open(data_config_path, "r") as config_file:
         config = json.load(config_file)
-    return get_defined_crs_from_config(config)
+    return get_defined_crs_from_config(config, only_numbers)
 
 
-def get_defined_crs_from_config(config):
+def get_defined_crs_from_config(config, only_numbers=False):
     tilegrid = config["TileGrid"]
     crs = tilegrid['srid']
-    return f'EPSG:{crs}'
+    return crs if only_numbers else f'EPSG:{crs}'
+
+
+def get_projection_from_config_path(data_config_path):
+    epsg = get_defined_crs_from_config_path(data_config_path, True)
+    srs = osr.SpatialReference()
+    srs.ImportFromEPSG(epsg)
+    projection = srs.ExportToWkt()
+    return projection

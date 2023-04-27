@@ -8,7 +8,7 @@ from kartai.tools.create_training_data import (DatasetBuilder, Region,
 from kartai.datamodels_and_services.ImageSourceServices import Tile
 
 
-def fetch_data_to_predict(geom, config_path):
+def fetch_data_to_predict(geom, config_path, output_path):
     with open(config_path) as f:
         config = json.load(f)
 
@@ -24,14 +24,11 @@ def fetch_data_to_predict(geom, config_path):
     dataset_builder = DatasetBuilder(image_sets)
     if("ProjectArguments" in config):
         dataset = list(dataset_builder.assemble_data(
-            Region(geom), config["ImageSources"], project_config=config["ProjectArguments"]), eager_load=True)
+            Region(geom), config["ImageSources"], project_config=config["ProjectArguments"], eager_load=True))
     else:
         dataset = list(dataset_builder.assemble_data(
-            Region(geom), config["ImageSources"]), eager_load=True)
+            Region(geom), config["ImageSources"], eager_load=True))
 
     # Save file image references
-    data_path = env.get_env_variable('created_datasets_directory')
-    if not os.path.exists(data_path):
-        os.mkdir(data_path)
-    with open(data_path + "/prediction_set.json", "w") as file:
+    with open(output_path, "w") as file:
         json.dump(Tile.tileset_to_json(dataset), file)

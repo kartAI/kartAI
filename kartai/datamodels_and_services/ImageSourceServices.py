@@ -9,6 +9,7 @@ import numpy as np
 import math
 import scipy as sp
 import env
+from kartai.utils.request_utils import do_request
 
 # ogr.UseExceptions()
 # gdal.UseExceptions()
@@ -343,40 +344,23 @@ class WMSImageSource(ImageSource):
             'bbox': f'{minx}, {miny}, {maxx}, {maxy}'
         }
 
-        # Do request
-        req = requests.get(self.base_url, stream=True, params=params,
-                           headers=None, timeout=None)
+        req = do_request(self.base_url, params)
 
-        # Handle response
-        if not req:
-            print("Something went very wrong in WMSImageSource", file=sys.stderr)
-        elif req.status_code == 200:
-            print("request status is 200")
-            if req.headers['content-type'] == self.img_format:
-                # If response is OK and an image, save image file
-                os.makedirs(os.path.dirname(image_path), exist_ok=True)
-                with open(image_path, 'wb') as out_file:
-                    shutil.copyfileobj(req.raw, out_file)
+        print("request status is 200")
+        if req.headers['content-type'] == self.img_format:
+            # If response is OK and an image, save image file
+            os.makedirs(os.path.dirname(image_path), exist_ok=True)
+            with open(image_path, 'wb') as out_file:
+                shutil.copyfileobj(req.raw, out_file)
 
-                data_source = gdal.Open(image_path)
-                return data_source.ReadAsArray(), data_source.GetSpatialRef().ExportToWkt(), data_source.GetGeoTransform()
-
-            else:
-                # If no image, print error to stdout
-                print("Content-type: ", req.headers['content-type'],
-                      " url: ", req.url, " Content: ", req.text, file=sys.stderr)
-
-        # Use existing
-        elif req.status_code == 304:
             data_source = gdal.Open(image_path)
-            return data_source.ReadAsArray(), data_source.GetSpatialRef().ExportToWkt(), data_source.GetGeoTransform() 
+            return data_source.ReadAsArray(), data_source.GetSpatialRef().ExportToWkt(), data_source.GetGeoTransform()
 
-        # Handle error
         else:
-            print("Status: ", req.status_code,
-                  " url: ", req.url, file=sys.stderr)
-
-        return None, None, None
+            # If no image, print error to stdout
+            print("Content-type: ", req.headers['content-type'],
+                  " url: ", req.url, " Content: ", req.text, file=sys.stderr)
+            return None, None, None
 
 
 class WCSImageSource(ImageSource):
@@ -401,32 +385,8 @@ class WCSImageSource(ImageSource):
             'bbox': f'{minx}, {miny}, {maxx}, {maxy}'
         }
 
-        # Do request
-        req = None
-        wait = 1
-        for i in range(10):
-            try:
-                req = requests.get(self.base_url, stream=True, params=params,
-                                   headers=None, timeout=None)
-            except:
-                pass
-            if not req:
-                time.sleep(wait)
-                wait += 1
-            else:
-                if req.status_code == 200:
-                    break
-                else:
-                    time.sleep(wait)
-                    wait += 1
-
         # Handle response
-        if not req:
-            print("Something went very wrong in WCSImageSource", file=sys.stderr)
-            return None, None, None
-        elif req.status_code == 200:
-            print("request status is 200")
-
+        req = do_request(self.base_url, params)
         data = imageio.imread(req.content, ".tif")
 
         # If response is OK and an image, save image file
@@ -546,7 +506,7 @@ class PostgresImageSource(OGRImageSource):
         # print('connecting to db')
         connectionPwd = env.get_env_variable(self.layer_spec['passwd'])
         connString = f"PG: host={self.layer_spec['host']} port={self.layer_spec['port']} dbname={self.layer_spec['database']} " + \
-                     f"user={self.layer_spec['user']} password={connectionPwd}"
+            f"user={self.layer_spec['user']} password={connectionPwd}"
         self.data_source = ogr.Open(connString)
         # print('created connection', self.conn)
 
@@ -590,8 +550,8 @@ class ImageFileImageSource(ImageSource):
     def load_image(self, image_path, minx, miny, maxx, maxy, tile_size):
         """Load or generate an image with the geometry given by
         minx, miny, maxx, maxy, srid, tile_size from the image source and store into the image_path"""
-        os.makedirs(os.path.dirname(image_path), exist_ok = True)
-        
+        os.makedirs(os.path.dirname(image_path), exist_ok=True)
+
         target_ds = gdal.GetDriverByName('GTiff').Create(
             str(image_path),
             tile_size, tile_size, self.data_source.RasterCount, gdal.GDT_Byte,
@@ -621,7 +581,7 @@ class Composition:
         raise NotImplementedError(
             f"Class {self.__class__.__name__}.get_tile is not implemented")
 
-    @staticmethod
+    @ staticmethod
     def create(config, image_sources):
         """Composition Factory"""
         scale = config["scale"] if "scale" in config else None

@@ -5,7 +5,7 @@ from pathlib import Path
 from azure.storage.blob import BlobServiceClient, __version__
 
 
-def uploadModelToAzureBlobStorage(modelname):
+def upload_model_to_azure_blobstorage(modelname):
 
     try:
         print("Azure Blob Storage v" + __version__ +
@@ -16,28 +16,27 @@ def uploadModelToAzureBlobStorage(modelname):
         blob_service_client = BlobServiceClient.from_connection_string(
             connect_str)
 
-        uploadModelFile(modelname, blob_service_client, )
-        uploadMetadata(modelname, blob_service_client)
+        upload_model_file(modelname, blob_service_client, )
+        upload_metadata(modelname, blob_service_client)
 
     except Exception as ex:
         print('Exception:', ex)
 
 
-def uploadBuildingsDetectionDataset(modelname, dataset_name, blob_service_client, dataset):
-    dataset_container_name = env.get_env_variable(
-        "building_datasets_container_name")
-
-    dataset_name = modelname+'/'+dataset_name
+def upload_data_to_azure(data, filename, azure_container_name):
+    connect_str = env.get_env_variable('AZURE_STORAGE_CONNECTION_STRING')
+    blob_service_client = BlobServiceClient.from_connection_string(
+        connect_str)
 
     dataset_blob_client = blob_service_client.get_blob_client(
-        container=dataset_container_name, blob=dataset_name)
+        container=azure_container_name, blob=filename)
 
-    dataset_blob_client.upload_blob(dataset)
+    dataset_blob_client.upload_blob(data)
 
-    print("\nUploading to Azure Storage as blob:\n\t" + dataset_name)
+    print("\nUploading to Azure Storage as blob:\n\t" + filename)
 
 
-def uploadModelFile(modelname, blob_service_client):
+def upload_model_file(modelname, blob_service_client):
     model_container_name = env.get_env_variable("models_container_name")
 
     model_file_name = modelname+'.h5'
@@ -53,7 +52,7 @@ def uploadModelFile(modelname, blob_service_client):
     print("\nUploading to Azure Storage as blob:\n\t" + model_file_name)
 
 
-def uploadMetadata(modelname, blob_service_client):
+def upload_metadata(modelname, blob_service_client):
     metadata_container_name = env.get_env_variable("metadata_container_name")
 
     metadata_file_name = modelname+'.meta.json'
@@ -88,7 +87,7 @@ def upload_ksand_model_performance_file(performance_file_name):
     print("\nUploading to Azure Storage as blob:\n\t" + performance_file_name)
 
 
-def getAvailableTrainedModels():
+def get_available_trained_models():
     try:
         connect_str = env.get_env_variable('AZURE_STORAGE_CONNECTION_STRING')
         blob_service_client = BlobServiceClient.from_connection_string(
@@ -127,14 +126,14 @@ def get_available_ksand_performances():
         raise Exception("Could not fetch existing trained models")
 
 
-def downloadTrainedModels():
-    models = getAvailableTrainedModels()
+def download_trained_models():
+    models = get_available_trained_models()
     for model in models:
         checkpoint_path = os.path.join(env.get_env_variable(
             'trained_models_directory'), model)
         if not os.path.isfile(checkpoint_path):
             print('\nDownloading: ', model)
-            downloadModelFileFromAzure(Path(model).stem)
+            download_model_file_from_azure(Path(model).stem)
 
 
 def download_ksand_performances(download_file_path):
@@ -172,7 +171,7 @@ def download_ksand_performance_file_from_azure(performance_file_name, download_f
         print('Exception:', ex)
 
 
-def downloadModelFileFromAzure(trainedModelName):
+def download_model_file_from_azure(trainedModelName):
     try:
         print('\nDownloading trained model')
         connect_str = env.get_env_variable('AZURE_STORAGE_CONNECTION_STRING')
