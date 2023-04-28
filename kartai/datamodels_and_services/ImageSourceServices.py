@@ -1,6 +1,7 @@
 from osgeo import gdal, ogr, osr
 import imageio
 import os
+import weakref
 import requests
 import sys
 import time
@@ -101,9 +102,19 @@ class Tile:
         self._i = i
         self._j = j
         self._tile_size = tile_size
-        self._array = None
+        self._array_ref = None
         self._srs_wkt = None
         self._geo_transform = None
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Remove the unpicklable entries.
+        del state['_array_ref']
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._array_ref = None
 
     @property
     def file_path(self):
@@ -112,19 +123,20 @@ class Tile:
     @property
     def array(self):
         """Return the image array, load if necessary"""
-        self._load()
-        return self._array
+        return self._load()
 
     @property
     def srs_wkt(self):
         """Return the image spatial reference system, load if necessary"""
-        self._load()
+        if not self._srs_wkt:
+            self._load()
         return self._srs_wkt
 
     @property
     def geo_transform(self):
         """Return the image geographic transform, load if necessary"""
-        self._load()
+        if not self._geo_transform:
+            self._load()
         return self._geo_transform
 
     def to_json(self):
@@ -198,31 +210,30 @@ class Tile:
 
         return tileset
 
-    def save_cache(self):
-        self._load()
-        if self._array is None or not self._srs_wkt or not self._geo_transform:
-            raise ValueError("Invalid tile")
-        self._array = self._srs_wkt = self._geo_transform = None
 
     def _load(self):
-        if self._array is not None and self._srs_wkt and self._geo_transform:
-            return
-        file_path = self.file_path
-        if not file_path:
-            raise ValueError("No file_path?")
-        if self._image_source.cache_root is not None and os.path.exists(file_path):
-            data_source = gdal.Open(file_path)
-            self._geo_transform = data_source.GetGeoTransform()
-            self._srs_wkt = data_source.GetSpatialRef().ExportToWkt()
-            self._array = data_source.ReadAsArray()
-        else:
-            self._array, self._srs_wkt, self._geo_transform = \
-                self._image_source.load_tile(self._i, self._j, self._tile_size)
-            if self._image_source.cache_root is not None and not os.path.exists(file_path):
-                self._save()
+        array = None
+        if self._array_ref is not None and self._srs_wkt and self._geo_transform:
+            array = self._array_ref()
+        if array is None:
+            file_path = self.file_path
+            if not file_path:
+                raise ValueError("No file_path?")
+            if self._image_source.cache_root is not None and os.path.exists(file_path):
+                data_source = gdal.Open(file_path)
+                self._geo_transform = data_source.GetGeoTransform()
+                self._srs_wkt = data_source.GetSpatialRef().ExportToWkt()
+                array = data_source.ReadAsArray()
+            else:
+                array, self._srs_wkt, self._geo_transform = \
+                    self._image_source.load_tile(self._i, self._j, self._tile_size)
+                if self._image_source.cache_root is not None and not os.path.exists(file_path):
+                    self._save(array)
+            self._array_ref = weakref.ref(array)
+        return array
 
-    def _save(self):
-        if not (self._array is not None and self._srs_wkt and self._geo_transform):
+    def _save(self, array):
+        if not (array is not None and self._srs_wkt and self._geo_transform):
             raise ValueError("No data?")
 
         file_path = self.file_path
@@ -230,12 +241,12 @@ class Tile:
             raise ValueError("No file_path?")
 
         gdal_type = None
-        if self._array.dtype == np.single:
+        if array.dtype == np.single:
             gdal_type = gdal.GDT_Float32
-        elif self._array.dtype == np.double:
-            self._array = np.array(self._array, dtype=np.single)
+        elif array.dtype == np.double:
+            array = np.array(array, dtype=np.single)
             gdal_type = gdal.GDT_Float32
-        elif self._array.dtype == np.byte or self._array.dtype == np.ubyte:
+        elif array.dtype == np.byte or array.dtype == np.ubyte:
             gdal_type = gdal.GDT_Byte
 
         driver = None
@@ -246,14 +257,14 @@ class Tile:
 
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         data_source = driver.Create(file_path,
-                                    self._array.shape[0], self._array.shape[1],
-                                    self._array.shape[2] if len(
-                                        self._array.shape) > 2 else 1,
+                                    array.shape[0], array.shape[1],
+                                    array.shape[2] if len(
+                                        array.shape) > 2 else 1,
                                     gdal_type, gdal_options)
 
         data_source.SetGeoTransform(self._geo_transform)
         data_source.SetProjection(self._srs_wkt)
-        data_source.GetRasterBand(1).WriteArray(self._array)
+        data_source.GetRasterBand(1).WriteArray(array)
 
 
 class ImageSourceFactory:

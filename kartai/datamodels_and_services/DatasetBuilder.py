@@ -190,7 +190,8 @@ class DatasetBuilder:
             if self.evaluate_example(example):
                 if self.eager_load:
                     for v in example.values():
-                        v.save_cache()
+                        if v.array is None:
+                            raise ValueError("Tile without data?")
                 return example
         return None
 
