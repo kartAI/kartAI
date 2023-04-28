@@ -30,6 +30,17 @@ class TileGrid:
         self.dx = dx
         self.dy = dy if dy is not None else dx
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Remove the unpicklable entries.
+        del state['srs']
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.srs = osr.SpatialReference()
+        self.srs.ImportFromEPSG(self.srid)
+
     def image_geom(self, i, j):
         """Return the extent if an image tile with grid index i, j as
         minx, miny, maxx, maxy"""
@@ -186,6 +197,12 @@ class Tile:
             tileset.append(conv_item)
 
         return tileset
+
+    def save_cache(self):
+        self._load()
+        if self._array is None or not self._srs_wkt or not self._geo_transform:
+            raise ValueError("Invalid tile")
+        self._array = self._srs_wkt = self._geo_transform = None
 
     def _load(self):
         if self._array is not None and self._srs_wkt and self._geo_transform:
@@ -416,8 +433,9 @@ class OGRImageSource(ImageSource):
     def __init__(self, cache_root, tile_grid, layer_spec):
         super().__init__(cache_root, tile_grid, layer_spec)
 
-        # The layer
+        # OGR data
         self.layer = None
+        self.data_source = None
 
         # Setup attribute filter
         self.attribute_filter_json = layer_spec["attribute_filter"] if "attribute_filter" in layer_spec else None
@@ -429,6 +447,19 @@ class OGRImageSource(ImageSource):
                 self.attribute_filter = [self.attribute_filter_json]
         else:
             self.attribute_filter = [None]
+
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Remove the unpicklable entries.
+        del state['layer']
+        del state['data_source']
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.layer = None
+        self.data_source = None
 
     def open(self):
         raise NotImplementedError(
@@ -544,8 +575,18 @@ class ImageFileImageSource(ImageSource):
     def __init__(self, cache_root, tile_grid, layer_spec):
         super().__init__(cache_root, tile_grid, layer_spec)
         self.file_path = layer_spec["file_path"]
-        self.data_source = gdal.Open(self.file_path)
+        self.data_source = None
         self.img_srs = {}
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Remove the unpicklable entries.
+        del state['data_source']
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.data_source = None
 
     def load_image(self, image_path, minx, miny, maxx, maxy, tile_size):
         """Load or generate an image with the geometry given by
@@ -561,6 +602,9 @@ class ImageFileImageSource(ImageSource):
             maxy, 0, (miny - maxy) / tile_size,
         )
         target_ds.SetGeoTransform(geo_transform)
+
+        if self.data_source is None:
+            self.data_source = gdal.Open(self.file_path)
 
         srs_wkt = self.data_source.GetSpatialRef().ExportToWkt()
         target_ds.SetProjection(srs_wkt)

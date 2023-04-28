@@ -1,3 +1,5 @@
+import queue
+
 from osgeo import gdal
 import numpy as np
 import os
@@ -6,7 +8,7 @@ from kartai.utils.model_utils import model_is_confident
 import random
 import sys
 from kartai.datamodels_and_services.ImageSourceServices import Tile
-
+import multiprocessing as mp
 
 class DatasetBuilder:
     """Class for building datasets and populating caches.
@@ -32,7 +34,7 @@ class DatasetBuilder:
     """
 
     def __init__(self, image_set_dict, source_config, project_config=None, confidence_threshold=None,
-                      eval_model_checkpoint=None, eager_load=False):
+                      eval_model_checkpoint=None, eager_load=False, num_processes=None):
         """Constructor for DatasetBuilder.
         Takes a dictionary of ImageSets. The dictionary keys are used for indexing data samples in the resulting
         data sample list"""
@@ -71,13 +73,12 @@ class DatasetBuilder:
         self.shuffle_data = \
             project_config and "shuffle_data" in project_config and project_config["shuffle_data"] == "True"
 
-        self.num_processes = None
-        if not self.has_model_confidence_rule and project_config and "num_processes" in project_config:
-            self.num_processes = int(project_config["num_processes"])
-
+        self.num_processes = num_processes
         self.confidence_threshold = confidence_threshold
         self.eval_model_checkpoint = eval_model_checkpoint
         self.eager_load = eager_load
+        if self.num_processes:
+            self.eager_load = True
 
 
     def _evaluate_rule(self, img, rule):
@@ -188,12 +189,11 @@ class DatasetBuilder:
         else:
             if self.evaluate_example(example):
                 if self.eager_load:
-                    for k, v in example.items():
-                        if v.array is None:
-                            raise ValueError(
-                                f"Component {k} not loaded in example {i},{j}")
+                    for v in example.values():
+                        v.save_cache()
                 return example
         return None
+
 
     def assemble_data(self, region):
         """Generate cached images for an area, possibly satisfying the test implemented in the callable
@@ -215,7 +215,18 @@ class DatasetBuilder:
             region_data = list(region_data)
             random.shuffle(region_data)
 
-        #has_reached_start = False
+        in_q = out_q = None
+        processing_set = set()
+        processes = []
+        if self.num_processes:
+            in_q = mp.Queue()
+            out_q = mp.Queue()
+            for i in range(self.num_processes):
+                proc = mp.Process(None, self, f"DatasetBuilder_{i}", args=(out_q, in_q))
+                proc.start()
+                processes.append(proc)
+
+            #has_reached_start = False
         for i, j in region_data:
             print(i, j)
 
@@ -238,12 +249,59 @@ class DatasetBuilder:
                     f"\n !! Dataset stopped at {number_of_examples} instances, stopped after {search_limit} instances that was skipped due to confidence rule \n")
                 break
 
-            example = self.load_example(i, j)
-            if example:
-                number_of_examples += 1
-                print(
-                    f"\nAdded to dataset, total instances: {number_of_examples} of {self.max_size}")
-                yield example
+            if self.num_processes:
+                ij = (i,j)
+                out_q.put(ij)
+                processing_set.add(ij)
+                try:
+                    while True:
+                        ije = in_q.get_nowait()
+                        processing_set.remove((ije[0], ije[1]))
+                        example = ije[2]
+                        if example:
+                            number_of_examples += 1
+                            print(f"\nAdded to dataset, total instances: {number_of_examples} of {self.max_size}")
+                            yield example
+                        else:
+                            print("Skipping image, didn't pass dataset rule")
+                            skipped_images += 1
+                except queue.Empty:
+                    continue
             else:
-                print("Skipping image, didn't pass dataset rule")
-                skipped_images += 1
+                example = self.load_example(i, j)
+                if example:
+                    number_of_examples += 1
+                    print(f"\nAdded to dataset, total instances: {number_of_examples} of {self.max_size}")
+                    yield example
+                else:
+                    print("Skipping image, didn't pass dataset rule")
+                    skipped_images += 1
+
+        if out_q:
+            out_q.put(None)
+            while processing_set:
+                # Wait until all requested tiles are processed
+                ije = in_q.get()
+                processing_set.remove((ije[0], ije[1]))
+                example = ije[2]
+                if example:
+                    number_of_examples += 1
+                    print(f"\nAdded to dataset, total instances: {number_of_examples} of {self.max_size}")
+                    yield example
+                else:
+                    print("Skipping image, didn't pass dataset rule")
+                    skipped_images += 1
+
+    def __call__(self, in_q, out_q):
+        """Start a server process for image creation"""
+
+        while True:
+            ij = in_q.get()
+            if ij is None:
+                # Work finished, resend finished message for others to read
+                in_q.put(None)
+                return
+            i = ij[0]
+            j = ij[1]
+            example = self.load_example(i, j)
+            out_q.put((i, j, example))
