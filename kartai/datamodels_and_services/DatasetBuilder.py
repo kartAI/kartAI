@@ -10,6 +10,7 @@ import sys
 from kartai.datamodels_and_services.ImageSourceServices import Tile
 import multiprocessing as mp
 
+
 class DatasetBuilder:
     """Class for building datasets and populating caches.
 
@@ -34,7 +35,7 @@ class DatasetBuilder:
     """
 
     def __init__(self, image_set_dict, source_config, project_config=None, confidence_threshold=None,
-                      eval_model_checkpoint=None, eager_load=False, num_processes=None):
+                 eval_model_checkpoint=None, eager_load=False, num_processes=None):
         """Constructor for DatasetBuilder.
         Takes a dictionary of ImageSets. The dictionary keys are used for indexing data samples in the resulting
         data sample list"""
@@ -66,12 +67,13 @@ class DatasetBuilder:
 
         self.source_config = source_config
 
-        self.max_size = float("inf")
+        self.max_size = None
         if project_config and "max_size" in project_config:
             self.max_size = int(project_config["max_size"])
 
         self.shuffle_data = \
-            project_config and "shuffle_data" in project_config and project_config["shuffle_data"] == "True"
+            project_config and "shuffle_data" in project_config and project_config[
+                "shuffle_data"] == "True"
 
         self.num_processes = num_processes
         self.confidence_threshold = confidence_threshold
@@ -79,7 +81,6 @@ class DatasetBuilder:
         self.eager_load = eager_load
         if self.num_processes:
             self.eager_load = True
-
 
     def _evaluate_rule(self, img, rule):
         np_band = img.array
@@ -195,7 +196,6 @@ class DatasetBuilder:
                 return example
         return None
 
-
     def assemble_data(self, region):
         """Generate cached images for an area, possibly satisfying the test implemented in the callable
          'evaluate' and return list of examples. An 'example' is a dictionary mapping image set names to
@@ -211,10 +211,14 @@ class DatasetBuilder:
         # If running data teacher - check for infinite search, meaning the threshold is set too strict and no data fits the rule
 
         region_data = self.tile_grid.generate_ij(region)
+        region_data = list(region_data)
+
         if self.shuffle_data:
             # Have to convert to list in order to shuffle data
-            region_data = list(region_data)
             random.shuffle(region_data)
+
+        num_images_in_region = len(region_data)
+        dataset_region_size = self.max_size if self.max_size else num_images_in_region
 
         in_q = out_q = None
         processing_set = set()
@@ -223,24 +227,15 @@ class DatasetBuilder:
             in_q = mp.Queue()
             out_q = mp.Queue()
             for i in range(self.num_processes):
-                proc = mp.Process(None, self, f"DatasetBuilder_{i}", args=(out_q, in_q))
+                proc = mp.Process(
+                    None, self, f"DatasetBuilder_{i}", args=(out_q, in_q))
                 proc.start()
                 processes.append(proc)
 
-            #has_reached_start = False
         for i, j in region_data:
             print(i, j)
 
-            ''' 
-            # 690 4569
-            # Keep this - useful if training data production stops, and you dont want to start all over
-            if(not (i == 678 and j == 4443) and has_reached_start == False):
-                print('skip ij:', i, j)
-                continue
-            else:
-                has_reached_start = True '''
-
-            if(self.max_size <= number_of_examples):
+            if(self.max_size and self.max_size <= number_of_examples):
                 print(
                     "\n !! Dataset reached its max size, stopped dataset production \n")
                 break
@@ -251,7 +246,7 @@ class DatasetBuilder:
                 break
 
             if self.num_processes:
-                ij = (i,j)
+                ij = (i, j)
                 out_q.put(ij)
                 processing_set.add(ij)
                 try:
@@ -261,7 +256,8 @@ class DatasetBuilder:
                         example = ije[2]
                         if example:
                             number_of_examples += 1
-                            print(f"\nAdded to dataset, total instances: {number_of_examples} of {self.max_size}")
+                            print(
+                                f"\nAdded to dataset, total instances: {number_of_examples} of {dataset_region_size}.")
                             yield example
                         else:
                             print("Skipping image, didn't pass dataset rule")
@@ -272,7 +268,8 @@ class DatasetBuilder:
                 example = self.load_example(i, j)
                 if example:
                     number_of_examples += 1
-                    print(f"\nAdded to dataset, total instances: {number_of_examples} of {self.max_size}")
+                    print(
+                        f"\nAdded to dataset, total instances: {number_of_examples} of {dataset_region_size}")
                     yield example
                 else:
                     print("Skipping image, didn't pass dataset rule")
@@ -287,7 +284,8 @@ class DatasetBuilder:
                 example = ije[2]
                 if example:
                     number_of_examples += 1
-                    print(f"\nAdded to dataset, total instances: {number_of_examples} of {self.max_size}")
+                    print(
+                        f"\nAdded to dataset, total instances: {number_of_examples} of {dataset_region_size}")
                     yield example
                 else:
                     print("Skipping image, didn't pass dataset rule")
