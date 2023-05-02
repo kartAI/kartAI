@@ -46,7 +46,8 @@ def create_predicted_buildings_dataset(geom, checkpoint_name, data_config_path, 
     return all_predicted_buildings_dataset
 
 
-def create_building_dataset(geom, checkpoint_name, region_name, data_config_path, only_raw_predictions, skip_to_postprocess, max_mosaic_batch_size=200, save_to='azure'):
+def create_building_dataset(geom, checkpoint_name, region_name, data_config_path, only_raw_predictions, skip_to_postprocess,
+                            max_mosaic_batch_size=200, save_to='azure', num_processes=None):
 
     with open(data_config_path, "r") as config_file:
         config = json.load(config_file)
@@ -55,7 +56,7 @@ def create_building_dataset(geom, checkpoint_name, region_name, data_config_path
         projection = get_projection_from_config_path(data_config_path)
 
         run_ml_predictions(checkpoint_name, region_name, projection,
-                           config_path=data_config_path, geom=geom)
+                           config_path=data_config_path, geom=geom, num_processes=num_processes)
 
         time.sleep(2)  # Wait for complete saving to disk
 
@@ -85,13 +86,15 @@ def save_dataset_locally(data, filename, output_dir):
     file.close()
 
 
-def run_ml_predictions(checkpoint_name, region_name, projection, config_path=None, geom=None, skip_data_fetching=False, tupple_data=False, download_labels=False, batch_size=8, save_to='local'):
+def run_ml_predictions(checkpoint_name, region_name, projection, config_path=None, geom=None,
+                       skip_data_fetching=False, tupple_data=False, download_labels=False, batch_size=8,
+                       save_to='local', num_processes=None):
     from kartai.tools.predict import save_predicted_images_as_geotiff
 
     dataset_path_to_predict = get_dataset_to_predict_dir(region_name)
 
     if skip_data_fetching == False:
-        prepare_dataset_to_predict(region_name, geom, config_path)
+        prepare_dataset_to_predict(region_name, geom, config_path, num_processes=num_processes)
 
     raster_output_dir = get_raster_predictions_dir(
         region_name, checkpoint_name)
@@ -164,7 +167,7 @@ def get_dataset_to_predict_dir(region_name):
     return dataset_path_to_predict
 
 
-def prepare_dataset_to_predict(region_name, geom, config_path):
+def prepare_dataset_to_predict(region_name, geom, config_path, num_processes=None):
     from kartai.dataset.PredictionArea import fetch_data_to_predict
 
     dataset_path_to_predict = get_dataset_to_predict_dir(region_name)
@@ -176,9 +179,9 @@ def prepare_dataset_to_predict(region_name, geom, config_path):
             "Do you want to use the previously defined dataset for this area name? Answer 'y' to skip creating dataset, and 'n' if you want to produce a new one: ")
         if not skip_dataset_fetching == 'y':
             fetch_data_to_predict(
-                geom, config_path, dataset_path_to_predict)
+                geom, config_path, dataset_path_to_predict, num_processes=num_processes)
     else:
-        fetch_data_to_predict(geom, config_path, dataset_path_to_predict)
+        fetch_data_to_predict(geom, config_path, dataset_path_to_predict, num_processes=num_processes)
 
 
 def get_ml_model(checkpoint_name):

@@ -20,7 +20,7 @@ class DataGenerator(K.utils.Sequence):
                 input_list_dataset_json = json.load(input_data)
                 input_list_dataset = Tile.tileset_from_json(
                     input_list_dataset_json)
-                input_list = input_list + input_list_dataset
+                input_list += input_list_dataset
 
         self.datagenerator_config = datagenerator_config
         self.num_classes = num_classes
