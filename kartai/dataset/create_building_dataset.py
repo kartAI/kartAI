@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 from azure.blobstorage import upload_data_to_azure
 
-
+import tensorflow as tf
 import env
 import rasterio
 import rasterio.features
@@ -94,7 +94,8 @@ def run_ml_predictions(checkpoint_name, region_name, projection, config_path=Non
     dataset_path_to_predict = get_dataset_to_predict_dir(region_name)
 
     if skip_data_fetching == False:
-        prepare_dataset_to_predict(region_name, geom, config_path, num_processes=num_processes)
+        prepare_dataset_to_predict(
+            region_name, geom, config_path, num_processes=num_processes)
 
     raster_output_dir = get_raster_predictions_dir(
         region_name, checkpoint_name)
@@ -142,15 +143,20 @@ def run_ml_predictions(checkpoint_name, region_name, projection, config_path=Non
         if tupple_data:
             tupples_to_predict = get_tuples_to_predict(input_batch)
             # If lidar images => add the lidar channel to the image to predict as an extra channel
-            np_pred_results_iteration = model.predict(tupples_to_predict)
+            np_pred_results_iteration = predict(model, tupples_to_predict)
 
         else:
             images_to_predict = get_images_to_predict(
                 input_batch, img_dims, download_labels)
-            np_pred_results_iteration = model.predict(images_to_predict)
+            np_pred_results_iteration = predict(model, images_to_predict)
 
         save_predicted_images_as_geotiff(np_pred_results_iteration, input_batch,
                                          raster_output_dir, projection)
+
+
+def predict(model, images_to_predict):
+    # return model.predict(images_to_predict)
+    return model(tf.convert_to_tensor(images_to_predict), training=False).numpy()
 
 
 def get_dataset_to_predict_dir(region_name):
@@ -181,7 +187,8 @@ def prepare_dataset_to_predict(region_name, geom, config_path, num_processes=Non
             fetch_data_to_predict(
                 geom, config_path, dataset_path_to_predict, num_processes=num_processes)
     else:
-        fetch_data_to_predict(geom, config_path, dataset_path_to_predict, num_processes=num_processes)
+        fetch_data_to_predict(
+            geom, config_path, dataset_path_to_predict, num_processes=num_processes)
 
 
 def get_ml_model(checkpoint_name):

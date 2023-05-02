@@ -210,7 +210,6 @@ class Tile:
 
         return tileset
 
-
     def _load(self):
         array = None
         if self._array_ref is not None and self._srs_wkt and self._geo_transform:
@@ -220,13 +219,17 @@ class Tile:
             if not file_path:
                 raise ValueError("No file_path?")
             if self._image_source.cache_root is not None and os.path.exists(file_path):
-                data_source = gdal.Open(file_path)
-                self._geo_transform = data_source.GetGeoTransform()
-                self._srs_wkt = data_source.GetSpatialRef().ExportToWkt()
-                array = data_source.ReadAsArray()
-            else:
+                try:
+                    data_source = gdal.Open(file_path)
+                    self._geo_transform = data_source.GetGeoTransform()
+                    self._srs_wkt = data_source.GetSpatialRef().ExportToWkt()
+                    array = data_source.ReadAsArray()
+                except Exception:
+                    pass
+            if array is None:
                 array, self._srs_wkt, self._geo_transform = \
-                    self._image_source.load_tile(self._i, self._j, self._tile_size)
+                    self._image_source.load_tile(
+                        self._i, self._j, self._tile_size)
                 if self._image_source.cache_root is not None and not os.path.exists(file_path):
                     self._save(array)
             self._array_ref = weakref.ref(array)
@@ -458,7 +461,6 @@ class OGRImageSource(ImageSource):
                 self.attribute_filter = [self.attribute_filter_json]
         else:
             self.attribute_filter = [None]
-
 
     def __getstate__(self):
         state = self.__dict__.copy()
