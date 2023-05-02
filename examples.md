@@ -264,3 +264,6 @@ Produce vector data:
 ./kai create_predicted_buildings_contour --region training_data/regions/verdal-sentrum.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn verdal_sentrum
 
 ./kai create_predicted_buildings_contour --region training_data/regions/verdal_municipality.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn verdal --start_iteration 145000
+
+
+./kai create_predicted_buildings_contour --region training_data/regions/balsfjord_municipality.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn balsfjord
