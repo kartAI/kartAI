@@ -262,3 +262,8 @@ Produce vector data:
 ./kai create_predicted_buildings_contour --region training_data/regions/KristiansandBorderCropped.json -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn kristiansand -mb 100
 
 ./kai create_predicted_buildings_contour --region training_data/regions/verdal-sentrum.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn verdal_sentrum
+
+
+./kai create_predicted_buildings_contour --region training_data/regions/verdal_small_area.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn verdal_small_area -mp 10
+
+./kai create_predicted_buildings_contour --region training_data/regions/balsfjord_small_area.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn balsfjord_small_area -mp 10
