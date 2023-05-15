@@ -31,7 +31,7 @@ def add_parser(subparser):
                         required=True)
     parser.add_argument("-mb", "--max_batch_size", type=int,
                         help="Max batch size for creating raster images",
-                        default=10)
+                        default=200)
     parser.add_argument("-mp", "--num_load_processes",
                         type=int, required=False)
     parser.add_argument("-c", "--config_path", type=str,
