@@ -32,7 +32,8 @@ def add_parser(subparser):
     parser.add_argument("-mb", "--max_batch_size", type=int,
                         help="Max batch size for creating raster images",
                         default=200)
-
+    parser.add_argument("-mp", "--num_load_processes",
+                        type=int, required=False)
     parser.add_argument("-c", "--config_path", type=str,
                         help="Data configuration file", required=True)
 
@@ -49,7 +50,8 @@ def main(args):
     projection = get_projection_from_config_path(args.config_path)
 
     run_ml_predictions(args.checkpoint_name, args.region_name, projection,
-                       args.config_path, geom, batch_size=args.max_batch_size, skip_data_fetching=False, save_to="local")
+                       args.config_path, geom, batch_size=args.max_batch_size, skip_data_fetching=False,
+                       save_to="local", num_processes=args.num_load_processes)
 
     raster_output_dir = get_raster_predictions_dir(
         args.region_name, args.checkpoint_name)

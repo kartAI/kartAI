@@ -17,19 +17,20 @@ def do_request(url, params, stream=True, headers=None, timeout=None):
 
         if not req:
             time.sleep(wait)
-            increase_wait_time(wait, number_of_retries)
+            wait = increase_wait_time(wait, number_of_retries)
         else:
             if req.status_code == 200:
                 return req
             else:
                 print("Error in req – status code: ", req.status_code)
                 time.sleep(wait)
-                increase_wait_time(wait, number_of_retries)
+                wait = increase_wait_time(wait, number_of_retries)
         number_of_retries += 1
 
-    raise ValueError("Something went very wrong in request, even after 15 retries")
-
+    raise ValueError(
+        "Something went very wrong in request, even after 15 retries")
 
 
 def increase_wait_time(wait, number_of_retries):
     wait += 1 if number_of_retries < 10 else 30
+    return wait
