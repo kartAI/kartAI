@@ -28,9 +28,9 @@ from kartai.utils.prediction_utils import get_raster_predictions_dir, get_vector
 
 def create_predicted_buildings_dataset(geom, checkpoint_name, data_config_path, region_name):
     skip_to_postprocess = False  # For testing
-
+    projection = "EPSG:25832"
     if skip_to_postprocess == False:
-        run_ml_predictions(checkpoint_name, region_name,
+        run_ml_predictions(checkpoint_name, region_name, projection=projection,
                            config_path=data_config_path, geom=geom)
 
         time.sleep(2)  # Wait for complete saving to disk
@@ -86,12 +86,13 @@ def save_dataset_locally(data, filename, output_dir):
     file.close()
 
 
-def run_ml_predictions(checkpoint_name, region_name, projection, config_path=None, geom=None,
+def run_ml_predictions(checkpoint_name, region_name, projection, dataset_path_to_predict=None, config_path=None, geom=None,
                        skip_data_fetching=False, tupple_data=False, download_labels=False, batch_size=8,
                        save_to='local', num_processes=None):
     from kartai.tools.predict import save_predicted_images_as_geotiff
 
-    dataset_path_to_predict = get_dataset_to_predict_dir(region_name)
+    dataset_path_to_predict = dataset_path_to_predict if dataset_path_to_predict else get_dataset_to_predict_dir(
+        region_name)
 
     if skip_data_fetching == False:
         prepare_dataset_to_predict(
@@ -159,7 +160,7 @@ def predict(model, images_to_predict):
     return model(tf.convert_to_tensor(images_to_predict), training=False).numpy()
 
 
-def get_dataset_to_predict_dir(region_name):
+def get_dataset_to_predict_dir(region_name, suffix=None):
     dataset_dir = env.get_env_variable('created_datasets_directory')
 
     prediction_dataset_dir = os.path.join(
@@ -167,8 +168,9 @@ def get_dataset_to_predict_dir(region_name):
     if not os.path.exists(prediction_dataset_dir):
         os.makedirs(prediction_dataset_dir)
 
+    dataset_name = region_name+suffix+".json" if suffix else region_name+".json"
     dataset_path_to_predict = os.path.join(
-        prediction_dataset_dir, region_name+".json")
+        prediction_dataset_dir, dataset_name)
 
     return dataset_path_to_predict
 
@@ -570,6 +572,7 @@ def get_valid_geoms(geoms):
 
 
 def get_label_for_prediction_path(prediction_path, output_dir, config, is_ksand_test=False):
+    output_prediction_suffix = "prediction"
     labels_folder = get_labels_folder(config, is_ksand_test)
     label_path = prediction_path.replace('_'+output_prediction_suffix, "").replace(
         output_dir, labels_folder)

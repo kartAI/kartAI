@@ -11,7 +11,7 @@ from azure import blobstorage
 import shutil
 import env
 from pandasgui import show
-from kartai.dataset.create_building_dataset import get_all_predicted_buildings_dataset, run_ml_predictions
+from kartai.dataset.create_building_dataset import get_all_predicted_buildings_dataset, get_dataset_to_predict_dir, run_ml_predictions
 from kartai.dataset.performance_count import get_performance_count_for_detected_buildings
 from kartai.tools.create_training_data import create_training_data
 from kartai.dataset.Iou_calculations import get_IoU_for_ksand
@@ -28,6 +28,8 @@ def add_parser(subparser):
                         help='Whether to run ksand tests for the models as well', required=False)
     parser.add_argument('-preview', type=bool,
                         help='preview results so far', required=False)
+    parser.add_argument('-skip_downloads', type=bool,
+                        help='Skip downloading from azure', required=False)
 
     parser.set_defaults(func=main)
 
@@ -140,14 +142,15 @@ def run_ksand_tests(models, crs):
     # Create performance-metadata file for each performance test
 
     output_predictions_name = "_prediction.tif"
-    performance_metafiles = download_all_ksand_performance_meta_files()
-    predictions_output_dir = get_predictions_output_dir()
+    download_all_ksand_performance_meta_files()
+    region_name = 'ksand_test_area'
+    projection = "EPSG:25832"
 
     for model in models:
         model_name = Path(model).stem
         ksand_dataset_name, ksand_dataset_path, tupple_data = get_ksand_dataset_name_and_path(
             model_name)
-        if(not os.path.isfile(ksand_dataset_path)):
+        if(not os.path.exists(ksand_dataset_path)):
             create_ksand_validaton_dataset(ksand_dataset_name)
 
         iteration = models.index(model)
@@ -156,13 +159,11 @@ def run_ksand_tests(models, crs):
             continue
 
         print(f'Start proccess for model {iteration} of {len(models)}')
-        # Clean current content of folder to make sure only current batch is in folder
-        empty_folder(predictions_output_dir)
-        run_ml_predictions(model_name, predictions_output_dir,
-                           skip_data_fetching=True, dataset_path_to_predict=ksand_dataset_path, tupple_data=tupple_data, download_labels=True)
+        run_ml_predictions(model_name, region_name, projection, dataset_path_to_predict=ksand_dataset_path,
+                           skip_data_fetching=True, tupple_data=tupple_data, download_labels=True)
 
         predictions_path = sorted(
-            glob.glob(get_raster_predictions_dir("ksand_test_area", model)))
+            glob.glob(get_raster_predictions_dir(region_name, model)+f"/*{output_predictions_name}"))
 
         prediction_dataset_gdf = get_all_predicted_buildings_dataset(
             predictions_path, crs)
@@ -172,7 +173,7 @@ def run_ksand_tests(models, crs):
         performance_output_dir = get_ksand_performance_output_dir()
 
         false_count, true_count, true_new_buildings_count, fkb_missing_count, all_missing_count = get_performance_count_for_detected_buildings(
-            prediction_dataset_gdf, predictions_path, model_name, predictions_output_dir, performance_output_dir)
+            prediction_dataset_gdf, predictions_path, model_name, get_raster_predictions_dir(region_name, model), performance_output_dir)
 
         print('False detected buildings:', false_count)
         print('True detected buildings:', true_count)
@@ -216,15 +217,31 @@ def get_ksand_performance_meta_path(model_name):
     return path
 
 
+def get_checkpoint_meta_file_dir(model_name):
+    checkpoints_directory = env.get_env_variable('trained_models_directory')
+
+    # Support checkpoints from old and new format
+    kartai_dir = os.path.join(checkpoints_directory, model_name+'.meta.json')
+    kartai_stream_dir = os.path.join(os.path.join(
+        checkpoints_directory, model_name), model_name+'_meta.json')
+
+    if os.path.exists(kartai_dir):
+        return kartai_dir
+    elif os.path.exists(kartai_stream_dir):
+        return kartai_stream_dir
+    else:
+        raise Exception("Cannot find meta file for model:", model_name)
+
+
 def create_ksand_performance_metadata_file(ksand_IoU, model_name, false_count, true_buildings_count, true_new_buildings_count, fkb_missing_count, all_missing_count):
 
-    checkpoints_directory = env.get_env_variable('trained_models_directory')
     out_folder = get_ksand_performance_output_dir()
 
     if not os.path.isdir(out_folder):
         os.mkdir(out_folder)
 
-    with open(os.path.join(checkpoints_directory, model_name+'.meta.json')) as f:
+    meta_dir = get_checkpoint_meta_file_dir(model_name)
+    with open(meta_dir) as f:
         training_metadata_file = json.load(f)
 
     ct = datetime.datetime.now()
@@ -238,8 +255,8 @@ def create_ksand_performance_metadata_file(ksand_IoU, model_name, false_count, t
         "Manglende detekterte bygninger": all_missing_count,
         "Manglende detekterte 'nye' bygninger": fkb_missing_count,
         "training_params": {
-            "val_iou_point_5": max(training_metadata_file['training_results']['val_Iou_point_5']),
-            "dataset": training_metadata_file['training_dataset_name'],
+            "val_iou_point_5": get_training_iou_results(training_metadata_file),
+            "dataset": training_metadata_file['training_dataset_name'] if "training_dataset_name" in training_metadata_file else "kartai-stream",
         },
         "date_time": str(ct),
     }
@@ -251,6 +268,18 @@ def create_ksand_performance_metadata_file(ksand_IoU, model_name, false_count, t
         json.dump(meta, outfile, indent=ident)
 
     print("created metadata-file:\n", json.dumps(meta,  indent=ident))
+
+
+def get_training_iou_results(training_metadata_file):
+    training_results = -1
+    if(training_results in training_metadata_file):
+        training_results = max(
+            training_metadata_file['training_results']['val_Iou_point_5'])
+    else:
+        for log in training_metadata_file["logs"]:
+            if log["val_Iou_point_5"] > training_results:
+                training_results = log["val_Iou_point_5"]
+    return training_results
 
 
 def empty_folder(folder):
@@ -269,12 +298,23 @@ def empty_folder(folder):
 
 def main(args):
 
-    kai_models = download_all_models()
+    if not args.skip_downloads:
+      download_all_models()
 
-    # For testing: Manually adding stream models - have not implemented full support for displaying results for both types
-    #kai_stream_models = ["10-multiplex-mish-resnet-norway"]
-    #models = kai_models + kai_stream_models
-    models = kai_models
+    checkpoints_directory = env.get_env_variable('trained_models_directory')
+
+    checkpoint_files = glob.glob(checkpoints_directory + "/*.h5")
+
+    local_models_kartai = []
+    for checkpoint_path in checkpoint_files:
+        local_models_kartai.append(Path(Path(checkpoint_path).name).stem)
+
+    # glob.glob(get_raster_predictions_dir(region_name, model)+f"/*{output_predictions_name}"))
+
+    local_models_kartai_stream = [name for name in os.listdir(
+        checkpoints_directory) if os.path.isdir(os.path.join(checkpoints_directory, name))]
+
+    models = local_models_kartai + local_models_kartai_stream
 
     crs = "EPSG:25832"
     if args.ksand == True:

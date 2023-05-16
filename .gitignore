@@ -138,6 +138,7 @@ dataset/._.DS_Store
 client_run_results
 checkpoints
 checkpoints_dep
+checkpoints_complete_list
 
 env_secrets.py
 tensorflow_log
