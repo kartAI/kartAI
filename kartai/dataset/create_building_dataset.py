@@ -103,10 +103,8 @@ def run_ml_predictions(checkpoint_name, region_name, projection, dataset_path_to
 
     raster_predictions_already_exist = os.path.exists(raster_output_dir)
     if(raster_predictions_already_exist):
-        print(
-            f'Folder for raster predictions for {region_name} created by {checkpoint_name} already exist.')
         skip_running_prediction = input(
-            "Do you want to skip predictions? Answer 'y' to skip creating new predictions, and 'n' if you want to produce new ones: ")
+            f"Folder for raster predictions for {region_name} created by {checkpoint_name} already exist. Do you want to skip predictions? \nSkip? Answer 'y' \nCreate new? Answer 'n':\n  ")
         if skip_running_prediction == 'y':
             return
     else:
@@ -184,7 +182,7 @@ def prepare_dataset_to_predict(region_name, geom, config_path, num_processes=Non
     if(os.path.exists(dataset_path_to_predict)):
         print(f'A dataset for area name {region_name} already exist')
         skip_dataset_fetching = input(
-            "Do you want to use the previously defined dataset for this area name? Answer 'y' to skip creating dataset, and 'n' if you want to produce a new one: ")
+            "Do you want to use the previously defined dataset for this area name? \nSkip? Answer 'y' \nCreate new? Answer 'n':\n ")
         if not skip_dataset_fetching == 'y':
             fetch_data_to_predict(
                 geom, config_path, dataset_path_to_predict, num_processes=num_processes)

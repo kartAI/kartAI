@@ -275,3 +275,7 @@ Produce vector data:
 ./kai create_predicted_buildings_contour --region training_data/regions/rennebu_municipality.geojson -cn 10-multiplex-mish-resnet-norway -c config/dataset/bygg-no-rules.json -rn rennebu -mp 10
 
 ./kai create_predicted_buildings_contour --region training_data/regions/rennebu_municipality.geojson -cn multiplex-mish-f16-resnet-norway -c config/dataset/bygg-no-rules.json -rn rennebu -mp 10
+
+
+
+./kai create_predicted_buildings_contour --region training_data/regions/balsfjord_small_area.geojson -cn multiplex-mish-f16-resnet-norway-e14 -c config/dataset/bygg-no-rules.json -rn balsfjord_small_area -mp 10

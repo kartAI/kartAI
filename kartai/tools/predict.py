@@ -119,7 +119,7 @@ def save_predicted_images_as_geotiff(np_predictions, data_samples, output_dir, p
     return file_list, projection
 
 
-def create_contour_result(raster_path, output_dir, projection):
+def create_contour_result(raster_path, output_dir, projection, fixed_level_count):
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -152,8 +152,6 @@ def create_contour_result(raster_path, output_dir, projection):
     out_geojson_layer.CreateField(fieldDef)
     fieldDef = ogr.FieldDefn("elev", ogr.OFTReal)
     out_geojson_layer.CreateField(fieldDef)
-
-    fixed_level_count = [0, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
 
     ''' ContourGenerate(Band srcBand, double contourInterval, double contourBase,int fixedLevelCount, int useNoData, double noDataValue, Layer dstLayer, int idField, int elevField, GDALProgressFunc callback=0, void * callback_data=None) -> int '''
     gdal.ContourGenerate(srcBand=vrt_res.GetRasterBand(
