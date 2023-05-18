@@ -11,10 +11,10 @@ from azure import blobstorage
 import shutil
 import env
 from pandasgui import show
-from kartai.dataset.create_building_dataset import get_all_predicted_buildings_dataset, get_dataset_to_predict_dir, run_ml_predictions
+from kartai.dataset.create_building_dataset import get_all_predicted_buildings_dataset, run_ml_predictions
 from kartai.dataset.performance_count import get_performance_count_for_detected_buildings
 from kartai.tools.create_training_data import create_training_data
-from kartai.dataset.Iou_calculations import get_IoU_for_ksand
+from kartai.dataset.Iou_calculations import get_IoU_for_region
 from kartai.utils.prediction_utils import get_raster_predictions_dir
 
 
@@ -25,7 +25,9 @@ def add_parser(subparser):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument('-ksand', type=bool,
-                        help='Whether to run ksand tests for the models as well', required=False)
+                        help='Whether to run ksand tests for the models', required=False)
+    parser.add_argument('-balsfjord', type=bool,
+                        help='Whether to run balsfjord tests for the models', required=False)
     parser.add_argument('-preview', type=bool,
                         help='preview results so far', required=False)
     parser.add_argument('-skip_downloads', type=bool,
@@ -34,14 +36,14 @@ def add_parser(subparser):
     parser.set_defaults(func=main)
 
 
-def download_all_ksand_performance_meta_files():
+def download_all_performance_meta_files(region_name):
     # Start by downloading all models if not already downloaded
-    output_directory = get_ksand_performance_output_dir()
+    output_directory = get_performance_output_dir(region_name)
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
-    blobstorage.download_ksand_performances(output_directory)
-    performance_metafiles = blobstorage.get_available_ksand_performances()
+    blobstorage.download_performances(output_directory, region_name)
+    performance_metafiles = blobstorage.get_available_performances(region_name)
     return performance_metafiles
 
 
@@ -56,11 +58,12 @@ def download_all_models():
     return models
 
 
-def create_ksand_dataframe_result(models):
+def create_dataframe_result(models, region_name):
     rows = []
     for model in models:
         model_name = Path(model).stem
-        performance_metadata_path = get_ksand_performance_meta_path(model_name)
+        performance_metadata_path = get_performance_meta_path(
+            model_name, region_name)
 
         if(not os.path.isfile(performance_metadata_path)):
             continue
@@ -77,12 +80,12 @@ def create_ksand_dataframe_result(models):
         rows.append(row)
 
     df = pd.DataFrame(rows)
-    df.sort_values('ksand_IoU', inplace=True, ascending=False)
+    df.sort_values('IoU', inplace=True, ascending=False)
     print(df)
     show(df)
 
-    df.to_excel(os.path.join(get_ksand_performance_output_dir(),
-                'report_ksand_performance.xlsx'), index=False)
+    df.to_excel(os.path.join(get_performance_output_dir(region_name),
+                f'report_{region_name}_performance.xlsx'), index=False)
 
 
 def show_general_model_performance(models):
@@ -122,87 +125,88 @@ def show_general_model_performance(models):
                 'report_trained_models.xlsx'), index=False)
 
 
-def get_ksand_dataset_name_and_path(model_name):
-    # TODO: add better check for in order to find if model is height model and stack/twin model
+def get_dataset_name_and_path(model_name, dataset_name):
+    # TODO: add better check in order to find if model is height model and stack/twin model
     tupple_data = False
     if('ndh' in model_name or 'twin' in model_name):
         if 'twin' in model_name:
             tupple_data = True
-        ksand_dataset_name = 'ksand_ndh_prosjektomrade_not_adjusted_test_set'
+        area_dataset_name = f'{dataset_name}_ndh_prosjektomrade_not_adjusted_test_set'
     else:
-        ksand_dataset_name = 'ksand_prosjektomrade_not_adjusted_test_set'
+        area_dataset_name = f'{dataset_name}_prosjektomrade_not_adjusted_test_set'
 
-    ksand_dataset_path = os.path.join(env.get_env_variable(
-        'created_datasets_directory'), ksand_dataset_name+'/test_set.json')
+    area_dataset_path = os.path.join(env.get_env_variable(
+        'created_datasets_directory'), area_dataset_name+'/test_set.json')
 
-    return ksand_dataset_name, ksand_dataset_path, tupple_data
+    return area_dataset_name, area_dataset_path, tupple_data
 
 
-def run_ksand_tests(models, crs):
+def run_performance_tests(models, crs, region_name, config_path):
     # Create performance-metadata file for each performance test
 
     output_predictions_name = "_prediction.tif"
-    download_all_ksand_performance_meta_files()
-    region_name = 'ksand_test_area'
-    projection = "EPSG:25832"
+    download_all_performance_meta_files(region_name)
 
     for model in models:
         model_name = Path(model).stem
-        ksand_dataset_name, ksand_dataset_path, tupple_data = get_ksand_dataset_name_and_path(
-            model_name)
-        if(not os.path.exists(ksand_dataset_path)):
-            create_ksand_validaton_dataset(ksand_dataset_name)
+        dataset_name, dataset_path, tupple_data = get_dataset_name_and_path(
+            model_name, region_name)
+        if(not os.path.exists(dataset_path)):
+            create_performance_validaton_dataset(dataset_name, config_path)
 
         iteration = models.index(model)
 
-        if(has_run_performance_check(model_name)):
+        if(has_run_performance_check(model_name, region_name)):
             continue
 
         print(f'Start proccess for model {iteration} of {len(models)}')
-        run_ml_predictions(model_name, region_name, projection, dataset_path_to_predict=ksand_dataset_path,
+        run_ml_predictions(model_name, region_name+"_test_area", crs, dataset_path_to_predict=dataset_path,
                            skip_data_fetching=True, tupple_data=tupple_data, download_labels=True)
 
         predictions_path = sorted(
-            glob.glob(get_raster_predictions_dir(region_name, model)+f"/*{output_predictions_name}"))
+            glob.glob(get_raster_predictions_dir(region_name+"_test_area", model)+f"/*{output_predictions_name}"))
 
         prediction_dataset_gdf = get_all_predicted_buildings_dataset(
             predictions_path, crs)
 
-        IoU_ksand = get_IoU_for_ksand(prediction_dataset_gdf)
+        IoU = get_IoU_for_region(prediction_dataset_gdf, region_name, crs)
 
-        performance_output_dir = get_ksand_performance_output_dir()
+        performance_output_dir = get_performance_output_dir(region_name)
 
         false_count, true_count, true_new_buildings_count, fkb_missing_count, all_missing_count = get_performance_count_for_detected_buildings(
-            prediction_dataset_gdf, predictions_path, model_name, get_raster_predictions_dir(region_name, model), performance_output_dir)
+            prediction_dataset_gdf, predictions_path, model_name, performance_output_dir, config_path, region_name)
 
         print('False detected buildings:', false_count)
         print('True detected buildings:', true_count)
         print('Missed new building (not in fkb):', fkb_missing_count)
         print('All missing buildings', all_missing_count)
 
-        create_ksand_performance_metadata_file(
-            IoU_ksand, model_name, false_count, true_count, true_new_buildings_count, fkb_missing_count, all_missing_count)
+        create_performance_metadata_file(region_name,
+                                         IoU, model_name, false_count, true_count, true_new_buildings_count, fkb_missing_count, all_missing_count)
 
-        blobstorage.upload_ksand_model_performance_file(
-            model_name + '_ksand_performance')
+        blobstorage.upload_model_performance_file(
+            model_name + f'_{region_name}_performance', region_name)
 
-    create_ksand_dataframe_result(models)
-
-
-def create_ksand_validaton_dataset(ksand_dataset_name):
-    config_path = 'config/dataset/ksand-manuell.json'
-    create_training_data(ksand_dataset_name,
-                         config_path, eager_load=True, x_min=437300, x_max=445700, y_min=6442000, y_max=6447400)
+    create_dataframe_result(models, region_name)
 
 
-def has_run_performance_check(model_name):
-    meta_path = get_ksand_performance_meta_path(model_name)
+def create_performance_validaton_dataset(dataset_name, config_path):
+    if dataset_name == "ksand":
+        create_training_data(dataset_name,
+                             config_path, eager_load=True, x_min=437300, x_max=445700, y_min=6442000, y_max=6447400)
+    else:
+        create_training_data(dataset_name,
+                             config_path, eager_load=True, region="training_data/regions/balsfjord_test_area.geojson")
+
+
+def has_run_performance_check(model_name, region_name):
+    meta_path = get_performance_meta_path(model_name, region_name)
     return os.path.isfile(meta_path)
 
 
-def get_ksand_performance_output_dir():
+def get_performance_output_dir(name):
     return os.path.join(env.get_env_variable(
-        'prediction_results_directory'), 'ksand_performance')
+        'prediction_results_directory'), name+"_performance")
 
 
 def get_predictions_output_dir():
@@ -210,9 +214,9 @@ def get_predictions_output_dir():
         'prediction_results_directory'), 'prediction_for_performance_test')
 
 
-def get_ksand_performance_meta_path(model_name):
-    out_folder = get_ksand_performance_output_dir()
-    file_name = model_name + '_ksand_performance.json'
+def get_performance_meta_path(model_name, region_name):
+    out_folder = get_performance_output_dir(region_name)
+    file_name = model_name + f'_{region_name}_performance.json'
     path = os.path.join(out_folder, file_name)
     return path
 
@@ -233,9 +237,9 @@ def get_checkpoint_meta_file_dir(model_name):
         raise Exception("Cannot find meta file for model:", model_name)
 
 
-def create_ksand_performance_metadata_file(ksand_IoU, model_name, false_count, true_buildings_count, true_new_buildings_count, fkb_missing_count, all_missing_count):
+def create_performance_metadata_file(region_name, IoU, model_name, false_count, true_buildings_count, true_new_buildings_count, fkb_missing_count, all_missing_count):
 
-    out_folder = get_ksand_performance_output_dir()
+    out_folder = get_performance_output_dir(region_name)
 
     if not os.path.isdir(out_folder):
         os.mkdir(out_folder)
@@ -248,7 +252,8 @@ def create_ksand_performance_metadata_file(ksand_IoU, model_name, false_count, t
 
     meta = {
         "model_name": model_name,
-        "ksand_IoU": ksand_IoU,
+        "region": region_name,
+        "IoU": IoU,
         "Sanne detekterte bygnigner": true_buildings_count,
         "Sanne detekterte 'nye' bygninger": true_new_buildings_count,
         "Falske detekterte bygninger": false_count,
@@ -262,9 +267,9 @@ def create_ksand_performance_metadata_file(ksand_IoU, model_name, false_count, t
     }
     ident = 2
 
-    file = get_ksand_performance_meta_path(model_name)
+    performance_file = get_performance_meta_path(model_name, region_name)
 
-    with open(file, 'w') as outfile:
+    with open(performance_file, 'w') as outfile:
         json.dump(meta, outfile, indent=ident)
 
     print("created metadata-file:\n", json.dumps(meta,  indent=ident))
@@ -272,7 +277,7 @@ def create_ksand_performance_metadata_file(ksand_IoU, model_name, false_count, t
 
 def get_training_iou_results(training_metadata_file):
     training_results = -1
-    if(training_results in training_metadata_file):
+    if("training_results" in training_metadata_file):
         training_results = max(
             training_metadata_file['training_results']['val_Iou_point_5'])
     else:
@@ -299,7 +304,7 @@ def empty_folder(folder):
 def main(args):
 
     if not args.skip_downloads:
-      download_all_models()
+        download_all_models()
 
     checkpoints_directory = env.get_env_variable('trained_models_directory')
 
@@ -309,17 +314,20 @@ def main(args):
     for checkpoint_path in checkpoint_files:
         local_models_kartai.append(Path(Path(checkpoint_path).name).stem)
 
-    # glob.glob(get_raster_predictions_dir(region_name, model)+f"/*{output_predictions_name}"))
-
     local_models_kartai_stream = [name for name in os.listdir(
         checkpoints_directory) if os.path.isdir(os.path.join(checkpoints_directory, name))]
 
     models = local_models_kartai + local_models_kartai_stream
 
     crs = "EPSG:25832"
+    if args.preview == True:
+        create_dataframe_result(
+            models, region_name="ksand" if args.ksand else "balsfjord")
     if args.ksand == True:
-        run_ksand_tests(models, crs)
-    elif args.preview == True:
-        create_ksand_dataframe_result(models)
+        run_performance_tests(models, crs, region_name="ksand",
+                              config_path="config/dataset/ksand-manuell.json")
+    if args.balsfjord == True:
+        run_performance_tests(models, crs, region_name="balsfjord",
+                              config_path="config/dataset/bygg_test.json")
     else:
         show_general_model_performance(models)

@@ -4,23 +4,19 @@ import geopandas as gp
 import rasterio.merge
 from kartai.dataset.Iou_calculations import get_geo_data_frame
 from kartai.dataset.create_building_dataset import get_labels_dataset, get_new_buildings_dataset, get_new_frittliggende_dataset, get_raw_predictions, get_valid_geoms, merge_connected_geoms, perform_last_adjustments
-import env
+from kartai.dataset.test_area_utils import get_label_files_dir_for_test_region, get_test_region_avgrensning_dir
 from kartai.utils.crs_utils import get_defined_crs_from_config_path
 
-CRS_prosjektomrade = 'EPSG:25832'
-# TODO: fetch from config instead - have method for fetching from config
 
+def get_performance_count_for_detected_buildings(all_predicted_buildings_dataset, predictions_path, model_name, performance_output_dir, config_path, region_name):
 
-def get_performance_count_for_detected_buildings(all_predicted_buildings_dataset, predictions_path, model_name, predictions_output_dir, performance_output_dir):
-
-    config_path = 'config/dataset/ksand-manuell.json'
     with open(config_path, "r") as config_file:
         config = json.load(config_file)
 
     CRS_prosjektomrade = get_defined_crs_from_config_path(config_path)
 
     FKB_labels_dataset = get_labels_dataset(
-        predictions_path, predictions_output_dir, config, CRS_prosjektomrade, is_ksand_test=True)
+        predictions_path, config, CRS_prosjektomrade, is_performance_test=True, region_name=region_name)
 
     new_buildings_dataset = get_new_buildings_dataset(
         all_predicted_buildings_dataset, FKB_labels_dataset)
@@ -32,7 +28,8 @@ def get_performance_count_for_detected_buildings(all_predicted_buildings_dataset
     predicted_new_buildings = get_predicted_new_buildings(
         all_predicted_buildings_dataset, predictions_path, CRS_prosjektomrade)
 
-    true_labels_dataset = get_merged_true_labels()
+    true_labels_dataset = get_merged_true_labels(
+        region_name, CRS_prosjektomrade)
 
     correctly_detected_buildings = get_correctly_detected_buildings(
         true_labels_dataset, all_predicted_buildings_dataset)
@@ -55,8 +52,7 @@ def get_performance_count_for_detected_buildings(all_predicted_buildings_dataset
         true_labels_dataset, all_predicted_buildings_dataset)
 
     # Cut all datasets to test-region - the fetched prediction tiles cover area outside as well
-    area_to_predict = os.path.join(env.get_env_variable(
-        'cached_data_directory'), "AP2_T2_geodata/Prosjektområde/shape/avgrensning.shp")
+    area_to_predict = get_test_region_avgrensning_dir(region_name)
     area_gdf = gp.read_file(area_to_predict)
     wrongly_detected_buildings = gp.clip(
         wrongly_detected_buildings, area_gdf)
@@ -167,8 +163,9 @@ def get_predicted_new_buildings(all_predicted_buildings_dataset, predictions_pat
     return predicted_buildings_dataset
 
 
-def get_merged_true_labels():
-    true_labels_dataset = get_true_labels_dataset()
+def get_merged_true_labels(region_name, CRS_prosjektomrade):
+    true_labels_dataset = get_true_labels_dataset(
+        region_name, CRS_prosjektomrade)
     # Adding value to dissolve by, want to dissolve all buildings
     true_labels_dataset['value'] = 1
     # Buffer up a little bit in order to merge buildings that are barely not connected, but that should be considered as one building
@@ -179,12 +176,9 @@ def get_merged_true_labels():
     return true_labels_dataset
 
 
-def get_true_labels_dataset():
-    label_bygning_path = os.path.join(env.get_env_variable(
-        'cached_data_directory'), "AP2_T2_geodata/Prosjektområde/shape/bygning.shp")
-    label_tiltak_path = os.path.join(env.get_env_variable(
-        'cached_data_directory'), "AP2_T2_geodata/Prosjektområde/shape/tiltak.shp")
-    label_files = [label_bygning_path, label_tiltak_path]
+def get_true_labels_dataset(region_name, CRS_prosjektomrade):
+
+    label_files = get_label_files_dir_for_test_region(region_name)
     label_gdf = get_geo_data_frame(label_files, CRS_prosjektomrade)
     label_gdf["geometry"] = get_valid_geoms(label_gdf)
     return label_gdf

@@ -180,9 +180,8 @@ def prepare_dataset_to_predict(region_name, geom, config_path, num_processes=Non
 
     # Create ortofoto tiles for bbox area
     if(os.path.exists(dataset_path_to_predict)):
-        print(f'A dataset for area name {region_name} already exist')
         skip_dataset_fetching = input(
-            "Do you want to use the previously defined dataset for this area name? \nSkip? Answer 'y' \nCreate new? Answer 'n':\n ")
+            f"A dataset for area name {region_name} already exist. You can either use existing dataset by skipping step, or create a new. \nSkip? Answer 'y' \nCreate new? Answer 'n':\n ")
         if not skip_dataset_fetching == 'y':
             fetch_data_to_predict(
                 geom, config_path, dataset_path_to_predict, num_processes=num_processes)
@@ -306,7 +305,7 @@ def produce_vector_buildings(output_dir, raster_predictions_path, config, max_ba
             print('first in batch predictions', batch_prediction_paths[0])
             # Check if there are data in this batch
             new_tilbygg_dataset, new_frittliggende_bygg_dataset, existing_buildings_dataset, all_predicted_buildings_dataset = create_categorised_predicted_buldings_vectordata(
-                batch_prediction_paths, output_dir, config)
+                batch_prediction_paths, config)
 
             if all_predicted_buildings_dataset:  # Check if there are data in this batch
                 save_dataset(
@@ -384,14 +383,14 @@ def create_all_predicted_buildings_vectordata(predictions_path, config):
     return all_predicted_buildings_dataset.to_json()
 
 
-def create_categorised_predicted_buldings_vectordata(predictions_path, output_dir, config):
+def create_categorised_predicted_buldings_vectordata(predictions_path, config):
     crs = get_defined_crs_from_config(config)
 
     all_predicted_buildings_dataset = get_all_predicted_buildings_dataset(
         predictions_path, crs)
 
     labels_dataset = get_labels_dataset(
-        predictions_path, output_dir, config, crs)
+        predictions_path, config, crs)
 
     if labels_dataset.empty or all_predicted_buildings_dataset.empty:
         return None, None, None, None
@@ -507,12 +506,12 @@ def get_new_buildings_dataset(all_predicted_buildings_dataset, labels_dataset):
     return new_buildings
 
 
-def get_labels_dataset(predictions_path, output_dir, config, crs, is_ksand_test=False):
+def get_labels_dataset(predictions_path, config, crs, is_performance_test=False, region_name=None):
     label_tiles = gp.GeoDataFrame()
 
     for prediction_path in predictions_path:
-        label_path = get_label_for_prediction_path(
-            prediction_path,  output_dir, config, is_ksand_test)
+        label_path = get_true_label_for_prediction_path(
+            prediction_path, config, is_performance_test, region_name)
         label = rasterio.open(label_path)
         label_mask = label.read(1)
         label_polygons = polygonize_mask(label_mask, label, crs)
@@ -569,27 +568,27 @@ def get_valid_geoms(geoms):
     return geoms.geometry.buffer(0)
 
 
-def get_label_for_prediction_path(prediction_path, output_dir, config, is_ksand_test=False):
+def get_true_label_for_prediction_path(prediction_path, config, is_performance_test=False, region_name=None):
     output_prediction_suffix = "prediction"
-    labels_folder = get_labels_folder(config, is_ksand_test)
-    label_path = prediction_path.replace('_'+output_prediction_suffix, "").replace(
-        output_dir, labels_folder)
+    labels_folder = get_true_labels_folder(config, is_performance_test, region_name)
+    label_name =  Path(prediction_path).name.replace('_'+output_prediction_suffix, "")
+    label_path = os.path.join(labels_folder, label_name)
     return label_path
 
 
-def get_labels_folder(config, is_ksand_test=False):
+def get_true_labels_folder(config, is_performance_test=False, region_name=None):
     tilegrid = config["TileGrid"]
     cache_folder_name = f"{tilegrid['srid']}_{tilegrid['x0']}_{tilegrid['y0']}_{tilegrid['dx']}_{tilegrid['dy']}"
-    labelSourceName = get_label_source_name(config, is_ksand_test)
+    labelSourceName = get_label_source_name(config, is_performance_test=is_performance_test, region_name=region_name)
 
     byggDb_path = os.path.join(env.get_env_variable(
         "cached_data_directory"), labelSourceName, cache_folder_name, "512")
     return byggDb_path
 
 
-def get_label_source_name(config, is_ksand_test=False):
+def get_label_source_name(config, region_name=None, is_performance_test=False,):
     labelSourceName = None
-    if(is_ksand_test):
+    if is_performance_test and region_name == "ksand":
         labelSourceName = "Bygg_ksand_manuell_prosjekt"
     else:
         for source in config["ImageSources"]:
