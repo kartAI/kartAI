@@ -138,6 +138,7 @@ dataset/._.DS_Store
 client_run_results
 checkpoints
 checkpoints_dep
+checkpoints copy
 checkpoints_complete_list
 
 env_secrets.py
@@ -151,6 +152,8 @@ training_data/*
 
 !training_data/created_datasets
 training_data/created_datasets/*
+kartai/dataset/raw_balsfjord_dvh.json
+training_data/regions/sig_master_test_omrade.json
 
 .azureml/
 ml_workspace

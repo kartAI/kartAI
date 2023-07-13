@@ -80,7 +80,11 @@ def create_dataframe_result(models, region_name):
         rows.append(row)
 
     df = pd.DataFrame(rows)
-    df.sort_values('IoU', inplace=True, ascending=False)
+    try:
+        df.sort_values('IoU', inplace=True, ascending=False)
+    except:
+        df.sort_values('ksand_IoU', inplace=True, ascending=False)
+
     print(df)
     show(df)
 
@@ -255,9 +259,9 @@ def create_performance_metadata_file(region_name, IoU, model_name, false_count, 
         "region": region_name,
         "IoU": IoU,
         "Sanne detekterte bygnigner": true_buildings_count,
-        "Sanne detekterte 'nye' bygninger": true_new_buildings_count,
         "Falske detekterte bygninger": false_count,
         "Manglende detekterte bygninger": all_missing_count,
+        "Sanne detekterte 'nye' bygninger": true_new_buildings_count,
         "Manglende detekterte 'nye' bygninger": fkb_missing_count,
         "training_params": {
             "val_iou_point_5": get_training_iou_results(training_metadata_file),
@@ -304,7 +308,10 @@ def empty_folder(folder):
 def main(args):
 
     if not args.skip_downloads:
-        download_all_models()
+        download_data = input(
+            "Do you want to download model checkpoints from azure? \nDownload? Answer 'y' \nSkip? Answer 'n':\n ")
+        if download_data == 'y':
+            download_all_models()
 
     checkpoints_directory = env.get_env_variable('trained_models_directory')
 

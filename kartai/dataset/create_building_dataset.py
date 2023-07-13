@@ -8,12 +8,13 @@ import geopandas as gp
 import pandas as pd
 import numpy as np
 from azure.blobstorage import upload_data_to_azure
-
+from tensorflow import keras
 import tensorflow as tf
 import env
 import rasterio
 import rasterio.features
 import rasterio.merge
+from keras.utils import tf_utils
 
 from rasterstats import zonal_stats
 from kartai.datamodels_and_services.ImageSourceServices import Tile
@@ -95,19 +96,14 @@ def run_ml_predictions(checkpoint_name, region_name, projection, dataset_path_to
         region_name)
 
     if skip_data_fetching == False:
-        prepare_dataset_to_predict(
-            region_name, geom, config_path, num_processes=num_processes)
+      prepare_dataset_to_predict(
+          region_name, geom, config_path, num_processes=num_processes)
 
     raster_output_dir = get_raster_predictions_dir(
         region_name, checkpoint_name)
 
     raster_predictions_already_exist = os.path.exists(raster_output_dir)
-    if(raster_predictions_already_exist):
-        skip_running_prediction = input(
-            f"Folder for raster predictions for {region_name} created by {checkpoint_name} already exist. Do you want to skip predictions? \nSkip? Answer 'y' \nCreate new? Answer 'n':\n  ")
-        if skip_running_prediction == 'y':
-            return
-    else:
+    if(not raster_predictions_already_exist):
         os.makedirs(raster_output_dir)
 
     model = get_ml_model(checkpoint_name)
@@ -190,6 +186,43 @@ def prepare_dataset_to_predict(region_name, geom, config_path, num_processes=Non
             geom, config_path, dataset_path_to_predict, num_processes=num_processes)
 
 
+class Confidence(keras.metrics.Metric):
+
+    def __init__(self, confusion_weight=1.0, **kwargs):
+        super(Confidence, self).__init__(**kwargs)
+        self.confidence_sum = self.add_weight(
+            name='confidence_sum', initializer='zeros')
+        self.count = self.add_weight("count", initializer="zeros")
+        self.confidence = []
+        if confusion_weight < 0.:
+            confusion_weight = 0.
+        elif confusion_weight > 1.:
+            confusion_weight = 1.
+        self.confusion_weight = confusion_weight
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        raw_confidence = tf.math.abs(y_pred - 0.5) * 2
+        raw_confusion = tf.math.abs(y_pred - tf.cast(y_true, self._dtype))
+
+        confidence = raw_confidence - raw_confusion * self.confusion_weight
+        confidence = tf.math.maximum(confidence, 0.)
+        confidence = tf.math.reduce_mean(confidence, axis=(1, 2, 3))
+        self.confidence_sum.assign_add(tf.math.reduce_sum(confidence))
+        self.count.assign_add(tf.cast(tf.size(confidence), self._dtype))
+
+        # Return confidence
+        self.confidence.extend(
+            tf_utils.sync_to_numpy_or_python_type(confidence))
+
+    def result(self):
+        return tf.math.divide_no_nan(self.confidence_sum, self.count)
+
+    def reset_state(self):
+        self.confidence_sum.assign(0.)
+        self.count.assign(0.)
+        self.confidence = []
+
+
 def get_ml_model(checkpoint_name):
     from tensorflow import keras
     from kartai.tools.train import getLoss
@@ -216,7 +249,8 @@ def get_ml_model(checkpoint_name):
         'Iou_point_8': Iou_point_8,
         'Iou_point_9': Iou_point_9,
         'IoU': IoU,
-        'IoU_fz': IoU_fz
+        'IoU_fz': IoU_fz,
+        "Confidence": Confidence()
     }
     model = keras.models.load_model(
         checkpoint_path, custom_objects=dependencies)
@@ -556,9 +590,13 @@ def get_all_predicted_buildings_dataset(predictions_path, crs):
 
 
 def merge_connected_geoms(geoms):
-    dissolved_geoms = geoms.dissolve(by='value')
-    dissolved_geoms = dissolved_geoms.explode().reset_index(drop=True)
-    return dissolved_geoms
+    try:
+        dissolved_geoms = geoms.dissolve(by='value')
+        dissolved_geoms = dissolved_geoms.explode().reset_index(drop=True)
+        return dissolved_geoms
+    except Exception:
+        print("could not connect geoms")
+        return geoms
 
 
 def get_valid_geoms(geoms):
@@ -570,8 +608,10 @@ def get_valid_geoms(geoms):
 
 def get_true_label_for_prediction_path(prediction_path, config, is_performance_test=False, region_name=None):
     output_prediction_suffix = "prediction"
-    labels_folder = get_true_labels_folder(config, is_performance_test, region_name)
-    label_name =  Path(prediction_path).name.replace('_'+output_prediction_suffix, "")
+    labels_folder = get_true_labels_folder(
+        config, is_performance_test, region_name)
+    label_name = Path(prediction_path).name.replace(
+        '_'+output_prediction_suffix, "")
     label_path = os.path.join(labels_folder, label_name)
     return label_path
 
@@ -579,7 +619,8 @@ def get_true_label_for_prediction_path(prediction_path, config, is_performance_t
 def get_true_labels_folder(config, is_performance_test=False, region_name=None):
     tilegrid = config["TileGrid"]
     cache_folder_name = f"{tilegrid['srid']}_{tilegrid['x0']}_{tilegrid['y0']}_{tilegrid['dx']}_{tilegrid['dy']}"
-    labelSourceName = get_label_source_name(config, is_performance_test=is_performance_test, region_name=region_name)
+    labelSourceName = get_label_source_name(
+        config, is_performance_test=is_performance_test, region_name=region_name)
 
     byggDb_path = os.path.join(env.get_env_variable(
         "cached_data_directory"), labelSourceName, cache_folder_name, "512")

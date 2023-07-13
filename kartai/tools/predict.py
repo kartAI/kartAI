@@ -13,6 +13,7 @@ from tensorflow import keras
 
 import env
 from kartai.datamodels_and_services.ImageSourceServices import Tile
+from kartai.dataset.create_building_dataset import Confidence
 from kartai.dataset.format_conversion import np_to_gdal_mem
 from kartai.dataset.raster_process_tools import merge_data
 from kartai.exceptions import CheckpointNotFoundException, InvalidCheckpointException
@@ -50,7 +51,7 @@ def predict_and_evaluate(created_datasets_path, datagenerator_config, checkpoint
 
     batch_size = 2  # 6
     model.compile(optimizer=opt, loss='binary_crossentropy',
-                  metrics=[keras.metrics.BinaryAccuracy(), IoU, IoU_fz, Iou_point_5, Iou_point_6, Iou_point_7, Iou_point_8, Iou_point_9])
+                  metrics=[keras.metrics.BinaryAccuracy(), IoU, IoU_fz, Iou_point_5, Iou_point_6, Iou_point_7, Iou_point_8, Iou_point_9, Confidence()])
 
     # Evaluate model on test data
     results = model.evaluate(input_images, input_labels,

@@ -82,7 +82,10 @@ def upload_model_performance_file(performance_file_name, region_name):
         container=performance_container_name, blob=performance_file_name+'.json')
 
     with open(metadata_path, "rb") as metadata:
-        metadata_blob_client.upload_blob(metadata)
+        try:
+            metadata_blob_client.upload_blob(metadata)
+        except Exception:
+            print("Could not upload to azure - skipping")
 
     print("\nUploading to Azure Storage as blob:\n\t" + performance_file_name)
 

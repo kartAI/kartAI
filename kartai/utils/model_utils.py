@@ -3,6 +3,7 @@ import os
 from tensorflow import keras
 
 import env
+from kartai.dataset.create_building_dataset import Confidence
 from kartai.utils.dataset_utils import get_ground_truth, get_X_stack, get_X_tuple
 from kartai.metrics.meanIoU import (IoU, IoU_fz, Iou_point_5, Iou_point_6,
                                     Iou_point_7, Iou_point_8, Iou_point_9)
@@ -68,7 +69,8 @@ def load_checkpoint_model(checkpoint_name):
         'Iou_point_8': Iou_point_8,
         'Iou_point_9': Iou_point_9,
         'IoU': IoU,
-        'IoU_fz': IoU_fz
+        'IoU_fz': IoU_fz,
+        "Confidence": Confidence()
     }
 
     model = keras.models.load_model(model_fn, custom_objects=dependencies)

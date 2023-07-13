@@ -23,7 +23,7 @@ def get_label_files_dir_for_test_region(region_name):
         label_tiltak_path=os.path.join(cached_data_dir, "AP2_T2_geodata/Prosjektområde/shape/tiltak.shp")
         return [label_bygning_path, label_tiltak_path]
     elif(region_name == "balsfjord"):
-        return [os.path.join(cached_data_dir, "balsfjord_test_area/balsfjord_test_area_labels.shp")]
+        return [os.path.join(cached_data_dir, "balsfjord_test_area/balsfjord_test_area_labels_adjusted.shp")]
     else:
         raise ValueError(
             "Supports only region ksand and balsfjord, not region", region_name)
