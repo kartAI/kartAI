@@ -8,12 +8,13 @@ import geopandas as gp
 import pandas as pd
 import numpy as np
 from azure.blobstorage import upload_data_to_azure
-
+from tensorflow import keras
 import tensorflow as tf
 import env
 import rasterio
 import rasterio.features
 import rasterio.merge
+from keras.utils import tf_utils
 
 from rasterstats import zonal_stats
 from kartai.datamodels_and_services.ImageSourceServices import Tile
@@ -28,9 +29,9 @@ from kartai.utils.prediction_utils import get_raster_predictions_dir, get_vector
 
 def create_predicted_buildings_dataset(geom, checkpoint_name, data_config_path, region_name):
     skip_to_postprocess = False  # For testing
-
+    projection = "EPSG:25832"
     if skip_to_postprocess == False:
-        run_ml_predictions(checkpoint_name, region_name,
+        run_ml_predictions(checkpoint_name, region_name, projection=projection,
                            config_path=data_config_path, geom=geom)
 
         time.sleep(2)  # Wait for complete saving to disk
@@ -86,29 +87,23 @@ def save_dataset_locally(data, filename, output_dir):
     file.close()
 
 
-def run_ml_predictions(checkpoint_name, region_name, projection, config_path=None, geom=None,
+def run_ml_predictions(checkpoint_name, region_name, projection, dataset_path_to_predict=None, config_path=None, geom=None,
                        skip_data_fetching=False, tupple_data=False, download_labels=False, batch_size=8,
                        save_to='local', num_processes=None):
     from kartai.tools.predict import save_predicted_images_as_geotiff
 
-    dataset_path_to_predict = get_dataset_to_predict_dir(region_name)
+    dataset_path_to_predict = dataset_path_to_predict if dataset_path_to_predict else get_dataset_to_predict_dir(
+        region_name)
 
     if skip_data_fetching == False:
-        prepare_dataset_to_predict(
-            region_name, geom, config_path, num_processes=num_processes)
+      prepare_dataset_to_predict(
+          region_name, geom, config_path, num_processes=num_processes)
 
     raster_output_dir = get_raster_predictions_dir(
         region_name, checkpoint_name)
 
     raster_predictions_already_exist = os.path.exists(raster_output_dir)
-    if(raster_predictions_already_exist):
-        print(
-            f'Folder for raster predictions for {region_name} created by {checkpoint_name} already exist.')
-        skip_running_prediction = input(
-            "Do you want to skip predictions? Answer 'y' to skip creating new predictions, and 'n' if you want to produce new ones: ")
-        if skip_running_prediction == 'y':
-            return
-    else:
+    if(not raster_predictions_already_exist):
         os.makedirs(raster_output_dir)
 
     model = get_ml_model(checkpoint_name)
@@ -159,7 +154,7 @@ def predict(model, images_to_predict):
     return model(tf.convert_to_tensor(images_to_predict), training=False).numpy()
 
 
-def get_dataset_to_predict_dir(region_name):
+def get_dataset_to_predict_dir(region_name, suffix=None):
     dataset_dir = env.get_env_variable('created_datasets_directory')
 
     prediction_dataset_dir = os.path.join(
@@ -167,8 +162,9 @@ def get_dataset_to_predict_dir(region_name):
     if not os.path.exists(prediction_dataset_dir):
         os.makedirs(prediction_dataset_dir)
 
+    dataset_name = region_name+suffix+".json" if suffix else region_name+".json"
     dataset_path_to_predict = os.path.join(
-        prediction_dataset_dir, region_name+".json")
+        prediction_dataset_dir, dataset_name)
 
     return dataset_path_to_predict
 
@@ -180,15 +176,51 @@ def prepare_dataset_to_predict(region_name, geom, config_path, num_processes=Non
 
     # Create ortofoto tiles for bbox area
     if(os.path.exists(dataset_path_to_predict)):
-        print(f'A dataset for area name {region_name} already exist')
         skip_dataset_fetching = input(
-            "Do you want to use the previously defined dataset for this area name? Answer 'y' to skip creating dataset, and 'n' if you want to produce a new one: ")
+            f"A dataset for area name {region_name} already exist. You can either use existing dataset by skipping step, or create a new. \nSkip? Answer 'y' \nCreate new? Answer 'n':\n ")
         if not skip_dataset_fetching == 'y':
             fetch_data_to_predict(
                 geom, config_path, dataset_path_to_predict, num_processes=num_processes)
     else:
         fetch_data_to_predict(
             geom, config_path, dataset_path_to_predict, num_processes=num_processes)
+
+
+class Confidence(keras.metrics.Metric):
+
+    def __init__(self, confusion_weight=1.0, **kwargs):
+        super(Confidence, self).__init__(**kwargs)
+        self.confidence_sum = self.add_weight(
+            name='confidence_sum', initializer='zeros')
+        self.count = self.add_weight("count", initializer="zeros")
+        self.confidence = []
+        if confusion_weight < 0.:
+            confusion_weight = 0.
+        elif confusion_weight > 1.:
+            confusion_weight = 1.
+        self.confusion_weight = confusion_weight
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        raw_confidence = tf.math.abs(y_pred - 0.5) * 2
+        raw_confusion = tf.math.abs(y_pred - tf.cast(y_true, self._dtype))
+
+        confidence = raw_confidence - raw_confusion * self.confusion_weight
+        confidence = tf.math.maximum(confidence, 0.)
+        confidence = tf.math.reduce_mean(confidence, axis=(1, 2, 3))
+        self.confidence_sum.assign_add(tf.math.reduce_sum(confidence))
+        self.count.assign_add(tf.cast(tf.size(confidence), self._dtype))
+
+        # Return confidence
+        self.confidence.extend(
+            tf_utils.sync_to_numpy_or_python_type(confidence))
+
+    def result(self):
+        return tf.math.divide_no_nan(self.confidence_sum, self.count)
+
+    def reset_state(self):
+        self.confidence_sum.assign(0.)
+        self.count.assign(0.)
+        self.confidence = []
 
 
 def get_ml_model(checkpoint_name):
@@ -217,7 +249,8 @@ def get_ml_model(checkpoint_name):
         'Iou_point_8': Iou_point_8,
         'Iou_point_9': Iou_point_9,
         'IoU': IoU,
-        'IoU_fz': IoU_fz
+        'IoU_fz': IoU_fz,
+        "Confidence": Confidence()
     }
     model = keras.models.load_model(
         checkpoint_path, custom_objects=dependencies)
@@ -306,7 +339,7 @@ def produce_vector_buildings(output_dir, raster_predictions_path, config, max_ba
             print('first in batch predictions', batch_prediction_paths[0])
             # Check if there are data in this batch
             new_tilbygg_dataset, new_frittliggende_bygg_dataset, existing_buildings_dataset, all_predicted_buildings_dataset = create_categorised_predicted_buldings_vectordata(
-                batch_prediction_paths, output_dir, config)
+                batch_prediction_paths, config)
 
             if all_predicted_buildings_dataset:  # Check if there are data in this batch
                 save_dataset(
@@ -384,14 +417,14 @@ def create_all_predicted_buildings_vectordata(predictions_path, config):
     return all_predicted_buildings_dataset.to_json()
 
 
-def create_categorised_predicted_buldings_vectordata(predictions_path, output_dir, config):
+def create_categorised_predicted_buldings_vectordata(predictions_path, config):
     crs = get_defined_crs_from_config(config)
 
     all_predicted_buildings_dataset = get_all_predicted_buildings_dataset(
         predictions_path, crs)
 
     labels_dataset = get_labels_dataset(
-        predictions_path, output_dir, config, crs)
+        predictions_path, config, crs)
 
     if labels_dataset.empty or all_predicted_buildings_dataset.empty:
         return None, None, None, None
@@ -507,12 +540,12 @@ def get_new_buildings_dataset(all_predicted_buildings_dataset, labels_dataset):
     return new_buildings
 
 
-def get_labels_dataset(predictions_path, output_dir, config, crs, is_ksand_test=False):
+def get_labels_dataset(predictions_path, config, crs, is_performance_test=False, region_name=None):
     label_tiles = gp.GeoDataFrame()
 
     for prediction_path in predictions_path:
-        label_path = get_label_for_prediction_path(
-            prediction_path,  output_dir, config, is_ksand_test)
+        label_path = get_true_label_for_prediction_path(
+            prediction_path, config, is_performance_test, region_name)
         label = rasterio.open(label_path)
         label_mask = label.read(1)
         label_polygons = polygonize_mask(label_mask, label, crs)
@@ -557,9 +590,13 @@ def get_all_predicted_buildings_dataset(predictions_path, crs):
 
 
 def merge_connected_geoms(geoms):
-    dissolved_geoms = geoms.dissolve(by='value')
-    dissolved_geoms = dissolved_geoms.explode().reset_index(drop=True)
-    return dissolved_geoms
+    try:
+        dissolved_geoms = geoms.dissolve(by='value')
+        dissolved_geoms = dissolved_geoms.explode().reset_index(drop=True)
+        return dissolved_geoms
+    except Exception:
+        print("could not connect geoms")
+        return geoms
 
 
 def get_valid_geoms(geoms):
@@ -569,26 +606,30 @@ def get_valid_geoms(geoms):
     return geoms.geometry.buffer(0)
 
 
-def get_label_for_prediction_path(prediction_path, output_dir, config, is_ksand_test=False):
-    labels_folder = get_labels_folder(config, is_ksand_test)
-    label_path = prediction_path.replace('_'+output_prediction_suffix, "").replace(
-        output_dir, labels_folder)
+def get_true_label_for_prediction_path(prediction_path, config, is_performance_test=False, region_name=None):
+    output_prediction_suffix = "prediction"
+    labels_folder = get_true_labels_folder(
+        config, is_performance_test, region_name)
+    label_name = Path(prediction_path).name.replace(
+        '_'+output_prediction_suffix, "")
+    label_path = os.path.join(labels_folder, label_name)
     return label_path
 
 
-def get_labels_folder(config, is_ksand_test=False):
+def get_true_labels_folder(config, is_performance_test=False, region_name=None):
     tilegrid = config["TileGrid"]
     cache_folder_name = f"{tilegrid['srid']}_{tilegrid['x0']}_{tilegrid['y0']}_{tilegrid['dx']}_{tilegrid['dy']}"
-    labelSourceName = get_label_source_name(config, is_ksand_test)
+    labelSourceName = get_label_source_name(
+        config, is_performance_test=is_performance_test, region_name=region_name)
 
     byggDb_path = os.path.join(env.get_env_variable(
         "cached_data_directory"), labelSourceName, cache_folder_name, "512")
     return byggDb_path
 
 
-def get_label_source_name(config, is_ksand_test=False):
+def get_label_source_name(config, region_name=None, is_performance_test=False,):
     labelSourceName = None
-    if(is_ksand_test):
+    if is_performance_test and region_name == "ksand":
         labelSourceName = "Bygg_ksand_manuell_prosjekt"
     else:
         for source in config["ImageSources"]:

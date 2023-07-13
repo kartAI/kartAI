@@ -1,9 +1,6 @@
 import geopandas as gp
-from glob import glob
-import env
-import os
 
-from kartai.utils.crs_utils import get_defined_crs_from_config
+from kartai.dataset.test_area_utils import get_label_files_dir_for_test_region, get_test_region_avgrensning_dir
 
 
 def get_geo_data_frame(files, crs):
@@ -34,20 +31,13 @@ def get_IoU(label_files, prediction_gdf, area_to_predict, crs):
 
     return iou
 
-CRS_kristiansand = 'EPSG:25832'
 
-def get_IoU_for_ksand(prediction_gdf):
+def get_IoU_for_region(prediction_dataset_gdf, region_name, crs):
 
-    label_bygning_path = os.path.join(env.get_env_variable(
-        'cached_data_directory'), "AP2_T2_geodata/Prosjektområde/shape/bygning.shp")
-    label_tiltak_path = os.path.join(env.get_env_variable(
-        'cached_data_directory'), "AP2_T2_geodata/Prosjektområde/shape/tiltak.shp")
-    label_files = [label_bygning_path, label_tiltak_path]
+    label_files = get_label_files_dir_for_test_region(region_name)
+    area_to_predict = get_test_region_avgrensning_dir(region_name)
 
-    area_to_predict = os.path.join(env.get_env_variable(
-        'cached_data_directory'), "AP2_T2_geodata/Prosjektområde/shape/avgrensning.shp")
-
-    iou = get_IoU(label_files, prediction_gdf,
-                  area_to_predict, crs=CRS_kristiansand)
+    iou = get_IoU(label_files, prediction_dataset_gdf,
+                  area_to_predict, crs=crs)
     print(str(iou))
     return iou

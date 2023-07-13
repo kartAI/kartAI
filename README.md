@@ -383,7 +383,18 @@ We have created an automatic process for generating a result table that gives an
 
 ### IoU result table
 
-For a complete view of performance of the different models, run:
+Get a complete view of performance of the different models.
+The script opens a GUI table to view results, as well as creating an excel file.
+
+By adding the parameter `-ksand True` you will instead get a full list of how each model is performing on the given test area for the project.
+
+
+Arguments:
+
+| Argument | Description                                   |
+| -------- | :-------------------------------------------- |
+| -ksand     | Wether to run test on ksand area, which counts numbers of detected buildings |
+| -skip_download     | Wether to skip downloading models from azure |
 
 Unix:
 
@@ -393,19 +404,6 @@ Windows:
 
 `kai.bat results`
 
-The script opens a GUI table to view results, as well as an excel file.
-
-### [WIP] Building count result table
-
-By adding the parameter `-ksand true` you will instead get a full list of how each model is performing on the given test area for the project.
-
-Unix:
-
-`./kai results -ksand true`
-
-Windows:
-
-`kai.bat results -ksand true`
 
 ## Using the trained models
 

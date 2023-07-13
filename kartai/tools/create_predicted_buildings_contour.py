@@ -36,6 +36,8 @@ def add_parser(subparser):
                         type=int, required=False)
     parser.add_argument("-c", "--config_path", type=str,
                         help="Data configuration file", required=True)
+    parser.add_argument("-l", "--contour_levels", action="append",
+                        help="What levels to create contours for", required=False)
 
     '''NOT FULLY IMPLEMENTED YET parser.add_argument("-s", "--save_to", type=str, choices=['local', 'azure'], default='local',
                         help="Whether to save the resulting vector contour file to azure or locally") '''
@@ -50,7 +52,7 @@ def main(args):
     projection = get_projection_from_config_path(args.config_path)
 
     run_ml_predictions(args.checkpoint_name, args.region_name, projection,
-                       args.config_path, geom, batch_size=args.max_batch_size, skip_data_fetching=False,
+                       config_path=args.config_path, geom=geom, batch_size=args.max_batch_size, skip_data_fetching=False,
                        save_to="local", num_processes=args.num_load_processes)
 
     raster_output_dir = get_raster_predictions_dir(
@@ -58,7 +60,12 @@ def main(args):
     contour_output_dir = get_contour_predictions_dir(
         args.region_name, args.checkpoint_name)
 
+    contour_levels = [0, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+    if args.contour_levels:
+        contour_levels = [float(level) for level in args.contour_levels]
+
     print("---> Creating contour dataset from rasters")
-    create_contour_result(raster_output_dir, contour_output_dir, projection)
+    create_contour_result(
+        raster_output_dir, contour_output_dir, projection, contour_levels)
 
     print("==== Contour dataset created ====")
