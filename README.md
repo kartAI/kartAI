@@ -10,7 +10,7 @@ The repository allows you to easily create training data for any sort of vector 
 
 - [Prerequisites](#prerequisites)
 - [Setup](#setup)
-  - [Conda environment](#conda-environment)
+  - [Installation guide](#installing-dependencies)
   - [Running scripts](#running-scripts)
   - [Environment variables](#environment-variables)
 - [Models](#models)
@@ -29,7 +29,6 @@ The repository allows you to easily create training data for any sort of vector 
   - [Run multiple training processes](#run-multiple-training-processes)
 - [Evaluating the models](#evaluating-the-models)
   - [IoU result table](#iou-result-table)
-  - [Building count result table](#building-count-result-table)
 - [Using the trained models](#using-the-trained-models)
   - [Predict](#predict)
   - [Create vectordata](#create-vectordata)
@@ -40,15 +39,9 @@ In order to create the training data for building segmentation you need access t
 
 ## Setup
 
-### Conda environment
+### Installing dependencies
 
-To make sure you have correct versions of all packages we recommend using anaconda.
-
-Create a conda environment with python 3.9 by running command below. Replace "env-name" with desired name for the environment
-
-`conda create -n "env-name" python=3.9`
-
-`conda activate "env-name"`
+See installation guide [here](DOCS/installation.md).
 
 ### Running scripts
 
