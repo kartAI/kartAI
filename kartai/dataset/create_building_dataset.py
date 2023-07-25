@@ -14,15 +14,18 @@ import env
 import rasterio
 import rasterio.features
 import rasterio.merge
-from keras.utils import tf_utils
-
 from rasterstats import zonal_stats
 from kartai.datamodels_and_services.ImageSourceServices import Tile
+from kartai.utils.confidence import Confidence
 from kartai.utils.crs_utils import get_defined_crs_from_config, get_defined_crs_from_config_path, get_projection_from_config_path
 
 from kartai.utils.dataset_utils import get_X_tuple
+from kartai.utils.geometry_utils import parse_region_arg
 from kartai.utils.prediction_utils import get_raster_predictions_dir, get_vector_predictions_dir
-
+from kartai.tools.train import getLoss
+from kartai.metrics.meanIoU import (IoU, IoU_fz, Iou_point_5, Iou_point_6,
+                                    Iou_point_7, Iou_point_8, Iou_point_9)
+from sqlalchemy import create_engine
 
 # Used by API
 
@@ -47,7 +50,7 @@ def create_predicted_buildings_dataset(geom, checkpoint_name, data_config_path, 
     return all_predicted_buildings_dataset
 
 
-def create_building_dataset(geom, checkpoint_name, region_name, data_config_path, only_raw_predictions, skip_to_postprocess,
+def create_building_dataset(geom, checkpoint_name, region, region_name, data_config_path, only_raw_predictions, skip_to_postprocess,
                             max_mosaic_batch_size=200, save_to='azure', num_processes=None):
 
     with open(data_config_path, "r") as config_file:
@@ -69,7 +72,7 @@ def create_building_dataset(geom, checkpoint_name, region_name, data_config_path
         region_name, checkpoint_name)
 
     produce_vector_buildings(
-        vector_output_dir, raster_predictions_path, config, max_mosaic_batch_size, only_raw_predictions, f"{region_name}_{checkpoint_name}", save_to)
+        vector_output_dir, raster_predictions_path, config, max_mosaic_batch_size, only_raw_predictions, f"{region_name}_{checkpoint_name}", save_to, region)
 
 
 def save_dataset(data, filename, output_dir, modelname, save_to):
@@ -87,7 +90,7 @@ def save_dataset_locally(data, filename, output_dir):
     file.close()
 
 
-def run_ml_predictions(checkpoint_name, region_name, projection, dataset_path_to_predict=None, config_path=None, geom=None,
+def run_ml_predictions(input_model_name, region_name, projection, input_model_subfolder=None, dataset_path_to_predict=None, config_path=None, geom=None,
                        skip_data_fetching=False, tupple_data=False, download_labels=False, batch_size=8,
                        save_to='local', num_processes=None):
     from kartai.tools.predict import save_predicted_images_as_geotiff
@@ -96,17 +99,17 @@ def run_ml_predictions(checkpoint_name, region_name, projection, dataset_path_to
         region_name)
 
     if skip_data_fetching == False:
-      prepare_dataset_to_predict(
-          region_name, geom, config_path, num_processes=num_processes)
+        prepare_dataset_to_predict(
+            region_name, geom, config_path, num_processes=num_processes)
 
     raster_output_dir = get_raster_predictions_dir(
-        region_name, checkpoint_name)
+        region_name, input_model_name)
 
     raster_predictions_already_exist = os.path.exists(raster_output_dir)
     if(not raster_predictions_already_exist):
         os.makedirs(raster_output_dir)
 
-    model = get_ml_model(checkpoint_name)
+    model = get_ml_model(input_model_name, input_model_subfolder)
 
     # Read file with references to created ortofoto images that should be analyzed
     # Prediction data is without height info, therefor crashes
@@ -186,60 +189,10 @@ def prepare_dataset_to_predict(region_name, geom, config_path, num_processes=Non
             geom, config_path, dataset_path_to_predict, num_processes=num_processes)
 
 
-class Confidence(keras.metrics.Metric):
+def get_ml_model(input_model_name, input_model_subfolder=None):
 
-    def __init__(self, confusion_weight=1.0, **kwargs):
-        super(Confidence, self).__init__(**kwargs)
-        self.confidence_sum = self.add_weight(
-            name='confidence_sum', initializer='zeros')
-        self.count = self.add_weight("count", initializer="zeros")
-        self.confidence = []
-        if confusion_weight < 0.:
-            confusion_weight = 0.
-        elif confusion_weight > 1.:
-            confusion_weight = 1.
-        self.confusion_weight = confusion_weight
-
-    def update_state(self, y_true, y_pred, sample_weight=None):
-        raw_confidence = tf.math.abs(y_pred - 0.5) * 2
-        raw_confusion = tf.math.abs(y_pred - tf.cast(y_true, self._dtype))
-
-        confidence = raw_confidence - raw_confusion * self.confusion_weight
-        confidence = tf.math.maximum(confidence, 0.)
-        confidence = tf.math.reduce_mean(confidence, axis=(1, 2, 3))
-        self.confidence_sum.assign_add(tf.math.reduce_sum(confidence))
-        self.count.assign_add(tf.cast(tf.size(confidence), self._dtype))
-
-        # Return confidence
-        self.confidence.extend(
-            tf_utils.sync_to_numpy_or_python_type(confidence))
-
-    def result(self):
-        return tf.math.divide_no_nan(self.confidence_sum, self.count)
-
-    def reset_state(self):
-        self.confidence_sum.assign(0.)
-        self.count.assign(0.)
-        self.confidence = []
-
-
-def get_ml_model(checkpoint_name):
-    from tensorflow import keras
-    from kartai.tools.train import getLoss
-    from azure import blobstorage
-    from kartai.metrics.meanIoU import (IoU, IoU_fz, Iou_point_5, Iou_point_6,
-                                        Iou_point_7, Iou_point_8, Iou_point_9)
-
-    checkpoint_path = os.path.join(env.get_env_variable(
-        'trained_models_directory'), checkpoint_name)
-
-    if(not os.path.isdir(checkpoint_path)):
-        checkpoint_path = os.path.join(env.get_env_variable(
-            'trained_models_directory'), checkpoint_name+".h5")
-
-        if not os.path.isfile(checkpoint_path):
-            blobstorage.download_model_file_from_azure(
-                Path(checkpoint_name).stem)
+    checkpoint_path = get_checkpoint_path(
+        input_model_name, input_model_subfolder)
 
     dependencies = {
         'BinaryFocalLoss': getLoss('focal_loss'),
@@ -255,6 +208,58 @@ def get_ml_model(checkpoint_name):
     model = keras.models.load_model(
         checkpoint_path, custom_objects=dependencies)
     return model
+
+
+def get_checkpoint_path(input_model_name, input_model_subfolder):
+    """Support fetching files for both old format and new format
+      Old: checkpoints saved directly to the model directory
+      New: subfolders containing the epoch and iou value area created with checkpoints files inside. This allows us to save different versions of the models
+    """
+
+    input_model_path = os.path.join(env.get_env_variable(
+        "trained_models_directory"), input_model_name)
+
+    if input_model_subfolder:
+        return os.path.join(
+            input_model_path, input_model_subfolder)
+
+    existing_subfolders = os.listdir(input_model_path)
+    sub_dirs = []
+    for subfolder in existing_subfolders:
+        if "epoch" in subfolder:
+            sub_dirs.append(subfolder)
+
+    if len(sub_dirs) == 0:
+        return input_model_path
+    else:
+        best_metric = 0
+        best_checkpoint_path = ""
+        for sub_dir in sub_dirs:
+            metric_in_sub_dir = get_iou_from_pathname(sub_dir)
+            if metric_in_sub_dir > best_metric:
+                best_metric = metric_in_sub_dir
+                best_checkpoint_path = sub_dir
+
+        return format_checkpoint_path(os.path.join(input_model_path, best_checkpoint_path))
+
+
+def format_checkpoint_path(checkpoint_path):
+    """Returns either directory for new tf checkpoint models, or the .h5 file"""
+
+    dir_content = os.listdir(checkpoint_path)
+    for file in dir_content:
+        if file == "tf_model.h5":
+            return os.path.join(checkpoint_path, "tf_model.h5")
+
+    return checkpoint_path
+
+
+def get_iou_from_pathname(path):
+    """Get IoU value in path name"""
+    if "IoU" not in path:
+        raise Exception(
+            "Sorry - Only supports fetching best checkpoint results when IoU metric is used and this checkpoint path has no IoU in its name")
+    return float(path.split("-IoU_")[1])
 
 
 def get_image_dims(prediction_input_list, tupple_data):
@@ -312,7 +317,7 @@ def get_tuples_to_predict(input_batch):
     return tupples_to_predict
 
 
-def produce_vector_buildings(output_dir, raster_predictions_path, config, max_batch_size, only_raw_predictions, modelname, save_to):
+def produce_vector_buildings(output_dir, raster_predictions_path, config, max_batch_size, only_raw_predictions, modelname, save_to, region):
     predictions_path = sorted(
         glob.glob(raster_predictions_path))
     print('output_dir', output_dir)
@@ -339,7 +344,7 @@ def produce_vector_buildings(output_dir, raster_predictions_path, config, max_ba
             print('first in batch predictions', batch_prediction_paths[0])
             # Check if there are data in this batch
             new_tilbygg_dataset, new_frittliggende_bygg_dataset, existing_buildings_dataset, all_predicted_buildings_dataset = create_categorised_predicted_buldings_vectordata(
-                batch_prediction_paths, config)
+                batch_prediction_paths, config, region)
 
             if all_predicted_buildings_dataset:  # Check if there are data in this batch
                 save_dataset(
@@ -417,20 +422,19 @@ def create_all_predicted_buildings_vectordata(predictions_path, config):
     return all_predicted_buildings_dataset.to_json()
 
 
-def create_categorised_predicted_buldings_vectordata(predictions_path, config):
+def create_categorised_predicted_buldings_vectordata(predictions_path, config, region):
     crs = get_defined_crs_from_config(config)
 
     all_predicted_buildings_dataset = get_all_predicted_buildings_dataset(
         predictions_path, crs)
 
-    labels_dataset = get_labels_dataset(
-        predictions_path, config, crs)
+    fkb_labels_dataset = get_fkb_labels(config, region)
 
-    if labels_dataset.empty or all_predicted_buildings_dataset.empty:
+    if fkb_labels_dataset.empty or all_predicted_buildings_dataset.empty:
         return None, None, None, None
 
     new_buildings_dataset = get_new_buildings_dataset(
-        all_predicted_buildings_dataset, labels_dataset)
+        all_predicted_buildings_dataset, fkb_labels_dataset)
 
     # Setting labels area in order to filter the following datasets
     all_predicted_buildings_dataset['labels_area'] = all_predicted_buildings_dataset.geometry.area - \
@@ -440,7 +444,7 @@ def create_categorised_predicted_buldings_vectordata(predictions_path, config):
         all_predicted_buildings_dataset)
 
     new_tilbygg_dataset = get_tilbygg_dataset(
-        all_predicted_buildings_dataset, labels_dataset)
+        all_predicted_buildings_dataset, fkb_labels_dataset)
 
     existing_buildings = get_existing_buildings_dataset(
         all_predicted_buildings_dataset,  new_tilbygg_dataset, new_frittliggende_bygg_dataset)
@@ -533,28 +537,37 @@ def get_new_frittliggende_dataset(all_predicted_buildings_dataset):
     return new_frittliggende_bygg_dataset
 
 
-def get_new_buildings_dataset(all_predicted_buildings_dataset, labels_dataset):
+def get_new_buildings_dataset(all_predicted_buildings_dataset, FKB_labels_dataset):
     new_buildings = gp.overlay(
-        all_predicted_buildings_dataset, labels_dataset, how='difference')
+        all_predicted_buildings_dataset, FKB_labels_dataset, how='difference')
     new_buildings.index = new_buildings['b_id']
     return new_buildings
 
 
-def get_labels_dataset(predictions_path, config, crs, is_performance_test=False, region_name=None):
-    label_tiles = gp.GeoDataFrame()
+def get_fkb_labels(config, region_path):
+    layer_spec = None
+    for source_config in config["ImageSources"]:
+        if source_config["type"] == "PostgresImageSource":
+            layer_spec = source_config
 
-    for prediction_path in predictions_path:
-        label_path = get_true_label_for_prediction_path(
-            prediction_path, config, is_performance_test, region_name)
-        label = rasterio.open(label_path)
-        label_mask = label.read(1)
-        label_polygons = polygonize_mask(label_mask, label, crs)
-        label_tiles = label_tiles.append(label_polygons, ignore_index=True)
+    connectionPwd = env.get_env_variable(layer_spec['passwd'])
 
-    if label_tiles.empty:
-        return label_tiles
-    label_tiles['geometry'] = get_valid_geoms(label_tiles)
-    all_labels_dissolved = merge_connected_geoms(label_tiles)
+    region_path = "training_data/regions/balsfjord_test_area.geojson"
+    region_geojson_string = parse_region_arg(region_path, "text")
+
+    table = layer_spec["table"].split(".datastore")[0]
+    sql = f"""
+    SELECT geom
+    FROM "{table}".datastore n
+    WHERE ST_Intersects(geom::geometry, st_setsrid(ST_geomfromgeojson('{region_geojson_string}'),{layer_spec["srid"]}))
+    """
+    db_connection_url = f"postgresql://{layer_spec['user']}:{connectionPwd}@{layer_spec['host']}:{layer_spec['port']}/{layer_spec['database']}"
+    con = create_engine(db_connection_url)
+
+    df = gp.GeoDataFrame.from_postgis(sql, con)
+    df.set_crs("EPSG:"+layer_spec["srid"])
+    # TODO: remove the merging to better correct count for buildings?
+    all_labels_dissolved = merge_connected_geoms(df)
     return all_labels_dissolved
 
 

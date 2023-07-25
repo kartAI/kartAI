@@ -13,6 +13,7 @@ import env
 from pandasgui import show
 from kartai.dataset.create_building_dataset import get_all_predicted_buildings_dataset, run_ml_predictions
 from kartai.dataset.performance_count import get_performance_count_for_detected_buildings
+from kartai.dataset.test_area_utils import get_test_region_avgrensning_dir
 from kartai.tools.create_training_data import create_training_data
 from kartai.dataset.Iou_calculations import get_IoU_for_region
 from kartai.utils.prediction_utils import get_raster_predictions_dir
@@ -145,7 +146,7 @@ def get_dataset_name_and_path(model_name, dataset_name):
     return area_dataset_name, area_dataset_path, tupple_data
 
 
-def run_performance_tests(models, crs, region_name, config_path):
+def run_performance_tests(models, crs, region, region_name, config_path):
     # Create performance-metadata file for each performance test
 
     output_predictions_name = "_prediction.tif"
@@ -164,7 +165,8 @@ def run_performance_tests(models, crs, region_name, config_path):
             continue
 
         print(f'Start proccess for model {iteration} of {len(models)}')
-        run_ml_predictions(model_name, region_name+"_test_area", crs, dataset_path_to_predict=dataset_path,
+
+        run_ml_predictions(model_name, region_name+"_test_area", crs, input_model_subfolder=None, dataset_path_to_predict=dataset_path,
                            skip_data_fetching=True, tupple_data=tupple_data, download_labels=True)
 
         predictions_path = sorted(
@@ -173,13 +175,12 @@ def run_performance_tests(models, crs, region_name, config_path):
         prediction_dataset_gdf = get_all_predicted_buildings_dataset(
             predictions_path, crs)
 
-        IoU = get_IoU_for_region(prediction_dataset_gdf, region_name, crs)
-
         performance_output_dir = get_performance_output_dir(region_name)
 
         false_count, true_count, true_new_buildings_count, fkb_missing_count, all_missing_count = get_performance_count_for_detected_buildings(
-            prediction_dataset_gdf, predictions_path, model_name, performance_output_dir, config_path, region_name)
+            prediction_dataset_gdf, predictions_path, model_name, performance_output_dir, config_path, region_name, region)
 
+        IoU = get_IoU_for_region(prediction_dataset_gdf, region_name, crs)
         print('False detected buildings:', false_count)
         print('True detected buildings:', true_count)
         print('Missed new building (not in fkb):', fkb_missing_count)
@@ -282,13 +283,21 @@ def create_performance_metadata_file(region_name, IoU, model_name, false_count, 
 def get_training_iou_results(training_metadata_file):
     training_results = -1
     if("training_results" in training_metadata_file):
-        training_results = max(
+        return max(
             training_metadata_file['training_results']['val_Iou_point_5'])
     else:
         for log in training_metadata_file["logs"]:
-            if log["val_Iou_point_5"] > training_results:
-                training_results = log["val_Iou_point_5"]
-    return training_results
+            if "val_segformer_iou_point_5" in log:
+                if log["val_segformer_iou_point_5"] > training_results:
+                    return log["val_segformer_iou_point_5"]
+            elif "val_Iou_point_5" in log:
+                if log["val_Iou_point_5"] > training_results:
+                    return log["val_Iou_point_5"]
+            elif "val_IoU" in log:
+                if log["val_IoU"] > training_results:
+                    return log["val_IoU"]
+            else:
+                raise NotImplementedError("Unknown metric")
 
 
 def empty_folder(folder):
@@ -331,10 +340,12 @@ def main(args):
         create_dataframe_result(
             models, region_name="ksand" if args.ksand else "balsfjord")
     if args.ksand == True:
-        run_performance_tests(models, crs, region_name="ksand",
+        region = get_test_region_avgrensning_dir("ksand")
+        run_performance_tests(models, crs, region, region_name="ksand",
                               config_path="config/dataset/ksand-manuell.json")
     if args.balsfjord == True:
-        run_performance_tests(models, crs, region_name="balsfjord",
+        region = get_test_region_avgrensning_dir("balsfjord")
+        run_performance_tests(models, crs, region, region_name="balsfjord",
                               config_path="config/dataset/bygg_test.json")
     else:
         show_general_model_performance(models)

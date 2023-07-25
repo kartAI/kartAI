@@ -19,8 +19,10 @@ def add_parser(subparser):
 
     existing_trained_model_names = get_existing_model_names()
 
-    parser.add_argument('-cn', '--checkpoint_name', type=str, choices=existing_trained_model_names,
+    parser.add_argument('-cn', '--input_model_name', type=str, choices=existing_trained_model_names,
                         help='Name for checkpoint file to use for prediction', required=True)
+    parser.add_argument('-im_sub', '--input_model_subfolder', type=str,
+                        help='If model is saved with new directory structure, specify the name of the subfolder containing the checkpoint')
     parser.add_argument("--region", type=str,
                         help="Polygon boundary of training area\n"
                              "WKT, json text or filename\n"
@@ -51,14 +53,14 @@ def main(args):
 
     projection = get_projection_from_config_path(args.config_path)
 
-    run_ml_predictions(args.checkpoint_name, args.region_name, projection,
+    run_ml_predictions(args.input_model_name, args.region_name, projection, args.input_model_subfolder,
                        config_path=args.config_path, geom=geom, batch_size=args.max_batch_size, skip_data_fetching=False,
                        save_to="local", num_processes=args.num_load_processes)
 
     raster_output_dir = get_raster_predictions_dir(
-        args.region_name, args.checkpoint_name)
+        args.region_name, args.input_model_name)
     contour_output_dir = get_contour_predictions_dir(
-        args.region_name, args.checkpoint_name)
+        args.region_name, args.input_model_name)
 
     contour_levels = [0, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
     if args.contour_levels:

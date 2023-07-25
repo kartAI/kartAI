@@ -1,19 +1,12 @@
 import os
-
 from tensorflow import keras
-
-import env
-from kartai.dataset.create_building_dataset import Confidence
+from kartai.utils.confidence import Confidence
 from kartai.utils.dataset_utils import get_ground_truth, get_X_stack, get_X_tuple
 from kartai.metrics.meanIoU import (IoU, IoU_fz, Iou_point_5, Iou_point_6,
                                     Iou_point_7, Iou_point_8, Iou_point_9)
-from kartai.utils import model_utils
 from kartai.tools.train import getLoss
-import json
 import numpy as np
-import sys
-from azure import blobstorage
-from pathlib import Path
+import env
 
 
 def predict_image(image_path, lidar_path, label_path, datagenerator_config, checkpoint_to_predict_with):

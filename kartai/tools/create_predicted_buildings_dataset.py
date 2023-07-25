@@ -55,5 +55,5 @@ def main(args):
     print('only_raw_predictions', only_raw_predictions)
     print('skip_to_postprocess', skip_to_postprocess)
 
-    create_building_dataset(geom, args.checkpoint_name, args.region_name,
+    create_building_dataset(geom, args.checkpoint_name, args.region, args.region_name,
                             args.config_path, only_raw_predictions=only_raw_predictions, skip_to_postprocess=skip_to_postprocess, max_mosaic_batch_size=args.max_mosaic_batch_size, save_to=args.save_to)

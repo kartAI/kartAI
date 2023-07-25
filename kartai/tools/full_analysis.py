@@ -71,14 +71,11 @@ def produce_building_dataset(analysis_name, trained_model_name, max_mosaic_batch
 
     geom = parse_region_arg(ksand_test_region_path)
 
-    output_dir = os.path.join(env.get_env_variable(
-        "prediction_results_directory"), analysis_name)
-
     config_path = "config/dataset/bygg-no-rules.json"
     only_raw_predictions = True
     skip_to_postprocess = False
-    create_building_dataset(geom, trained_model_name, 'full-analysis',
-                            config_path, only_raw_predictions, skip_to_postprocess, output_dir, max_mosaic_batch_size, save_to='local')
+    create_building_dataset(geom, trained_model_name, ksand_test_region_path, 'full-analysis',
+                            config_path, only_raw_predictions, skip_to_postprocess, max_mosaic_batch_size, save_to='local')
 
 
 def finetune_model_on_ksand(ksand_manuell_dataset_name, model_to_finetune, new_model_name, train_args, in_test_mode):

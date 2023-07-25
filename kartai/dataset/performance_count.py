@@ -3,20 +3,20 @@ import os
 import geopandas as gp
 import rasterio.merge
 from kartai.dataset.Iou_calculations import get_geo_data_frame
-from kartai.dataset.create_building_dataset import get_labels_dataset, get_new_buildings_dataset, get_new_frittliggende_dataset, get_raw_predictions, get_valid_geoms, merge_connected_geoms, perform_last_adjustments
+from kartai.dataset.create_building_dataset import get_fkb_labels, get_new_buildings_dataset, get_new_frittliggende_dataset, get_raw_predictions, get_valid_geoms, merge_connected_geoms, perform_last_adjustments
 from kartai.dataset.test_area_utils import get_label_files_dir_for_test_region, get_test_region_avgrensning_dir
 from kartai.utils.crs_utils import get_defined_crs_from_config_path
 
 
-def get_performance_count_for_detected_buildings(all_predicted_buildings_dataset, predictions_path, model_name, performance_output_dir, config_path, region_name):
+def get_performance_count_for_detected_buildings(all_predicted_buildings_dataset, predictions_path, model_name, performance_output_dir, config_path, region_name, region):
 
     with open(config_path, "r") as config_file:
         config = json.load(config_file)
 
     CRS_prosjektomrade = get_defined_crs_from_config_path(config_path)
 
-    FKB_labels_dataset = get_labels_dataset(
-        predictions_path, config, CRS_prosjektomrade, is_performance_test=True, region_name=region_name)
+    FKB_labels_dataset = get_fkb_labels(
+        config, region)
 
     new_buildings_dataset = get_new_buildings_dataset(
         all_predicted_buildings_dataset, FKB_labels_dataset)
