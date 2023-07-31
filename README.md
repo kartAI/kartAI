@@ -451,7 +451,6 @@ Arguments:
 | --region | Polygon or MultiPolygon describing data area with coordinates in same system as defined in config (i.e EPSG:25832), WKT or geojson (geometry) format, directly in a text string or as a filename | WKT, jsontext, or filename | yes |
 | -c      |Data config path | string | yes
 | -mb      |Max batch size for creating mosaic of the predictions | int | No | 200
-| -extra      | Whether or not to create extra datasets for tilbygg, frittliggende and existing buildings as well | string | No | "false"
 | -p      | Whether to skip directly to postprocessing, and not look for needed downloaded data. Typically used if you have already run production of dataset for same area, but with different model | bool | No | False
 | -s      | Whether to save resulting vectordata to azure or locally. Options as 'local' or 'azure' | string | No | azure
 

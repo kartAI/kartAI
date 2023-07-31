@@ -1,6 +1,6 @@
 import geopandas as gp
 
-from kartai.dataset.test_area_utils import get_label_files_dir_for_test_region, get_test_region_avgrensning_dir
+from kartai.dataset.test_area_utils import get_adjusted_labels_dir, get_test_region_avgrensning_dir
 
 
 def get_geo_data_frame(files, crs):
@@ -34,7 +34,7 @@ def get_IoU(label_files, prediction_gdf, area_to_predict, crs):
 
 def get_IoU_for_region(prediction_dataset_gdf, region_name, crs):
 
-    label_files = get_label_files_dir_for_test_region(region_name)
+    label_files = get_adjusted_labels_dir(region_name)
     area_to_predict = get_test_region_avgrensning_dir(region_name)
 
     iou = get_IoU(label_files, prediction_dataset_gdf,

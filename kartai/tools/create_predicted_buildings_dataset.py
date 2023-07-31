@@ -32,10 +32,7 @@ def add_parser(subparser):
 
     parser.add_argument("-c", "--config_path", type=str,
                         help="Data configuration file", required=True)
-
-    parser.add_argument("--extra", "--create_extra_datasets", type=str, required=False, default='false',
-                        help="Whether or not to create extra datasets for tilbygg, frittliggende and existing buildings as well")
-
+    
     parser.add_argument("-p", "--skip_to_postprocess", type=str, required=False, default='false',
                         help="Whether to skip directly to postprocessing, and not look for needed downloaded data. Typically used if you have already run production of dataset for same area, but with different model")
 
@@ -49,11 +46,9 @@ def main(args):
 
     geom = parse_region_arg(args.region)
 
-    only_raw_predictions = True if args.extra == 'false' or args.only_raw_predictions == None else False
     skip_to_postprocess = False if args.skip_to_postprocess == 'false' or args.skip_to_postprocess == None else True
 
-    print('only_raw_predictions', only_raw_predictions)
     print('skip_to_postprocess', skip_to_postprocess)
 
-    create_building_dataset(geom, args.checkpoint_name, args.region, args.region_name,
-                            args.config_path, only_raw_predictions=only_raw_predictions, skip_to_postprocess=skip_to_postprocess, max_mosaic_batch_size=args.max_mosaic_batch_size, save_to=args.save_to)
+    create_building_dataset(geom, args.checkpoint_name, args.region_name,
+                            args.config_path, skip_to_postprocess=skip_to_postprocess, max_mosaic_batch_size=args.max_mosaic_batch_size, save_to=args.save_to)

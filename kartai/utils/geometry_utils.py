@@ -1,4 +1,3 @@
-from kartai.datamodels_and_services.Region import Region
 from osgeo import ogr
 import os
 

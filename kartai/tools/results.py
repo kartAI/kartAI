@@ -11,12 +11,13 @@ from azure import blobstorage
 import shutil
 import env
 from pandasgui import show
-from kartai.dataset.create_building_dataset import get_all_predicted_buildings_dataset, run_ml_predictions
-from kartai.dataset.performance_count import get_performance_count_for_detected_buildings
+from kartai.dataset.create_building_dataset import get_all_predicted_buildings_dataset, get_fkb_labels, run_ml_predictions
+from kartai.dataset.performance_count import get_new_buildings_fasit, get_performance_count_for_detected_buildings, get_true_labels
 from kartai.dataset.test_area_utils import get_test_region_avgrensning_dir
 from kartai.tools.create_training_data import create_training_data
 from kartai.dataset.Iou_calculations import get_IoU_for_region
 from kartai.utils.prediction_utils import get_raster_predictions_dir
+from kartai.utils.crs_utils import get_defined_crs_from_config_path
 
 
 def add_parser(subparser):
@@ -152,6 +153,23 @@ def run_performance_tests(models, crs, region, region_name, config_path):
     output_predictions_name = "_prediction.tif"
     download_all_performance_meta_files(region_name)
 
+    CRS_prosjektomrade = get_defined_crs_from_config_path(config_path)
+        
+    with open(config_path, "r") as config_file:
+      config = json.load(config_file)
+    
+    true_labels = get_true_labels(
+        region_name, CRS_prosjektomrade)
+    
+    fkb_labels = get_fkb_labels(
+        config, region)
+
+    new_buildings_fasit = get_new_buildings_fasit(
+        true_labels, fkb_labels)
+    
+    new_buildings_fasit.to_file("new_buildings_fasit.geojson", driver="GeoJSON", index=False)
+    
+    
     for model in models:
         model_name = Path(model).stem
         dataset_name, dataset_path, tupple_data = get_dataset_name_and_path(
@@ -161,14 +179,15 @@ def run_performance_tests(models, crs, region, region_name, config_path):
 
         iteration = models.index(model)
 
-        if(has_run_performance_check(model_name, region_name)):
+        #TODO:
+        """  if(has_run_performance_check(model_name, region_name)):
             continue
+        """
 
         print(f'Start proccess for model {iteration} of {len(models)}')
 
         run_ml_predictions(model_name, region_name+"_test_area", crs, input_model_subfolder=None, dataset_path_to_predict=dataset_path,
                            skip_data_fetching=True, tupple_data=tupple_data, download_labels=True)
-
         predictions_path = sorted(
             glob.glob(get_raster_predictions_dir(region_name+"_test_area", model)+f"/*{output_predictions_name}"))
 
@@ -178,7 +197,7 @@ def run_performance_tests(models, crs, region, region_name, config_path):
         performance_output_dir = get_performance_output_dir(region_name)
 
         false_count, true_count, true_new_buildings_count, fkb_missing_count, all_missing_count = get_performance_count_for_detected_buildings(
-            prediction_dataset_gdf, predictions_path, model_name, performance_output_dir, config_path, region_name, region)
+            prediction_dataset_gdf, predictions_path, true_labels,fkb_labels, new_buildings_fasit,CRS_prosjektomrade, model_name, performance_output_dir, region_name)
 
         IoU = get_IoU_for_region(prediction_dataset_gdf, region_name, crs)
         print('False detected buildings:', false_count)
@@ -342,7 +361,7 @@ def main(args):
     if args.ksand == True:
         region = get_test_region_avgrensning_dir("ksand")
         run_performance_tests(models, crs, region, region_name="ksand",
-                              config_path="config/dataset/ksand-manuell.json")
+                              config_path="config/dataset/bygg_test.json")
     if args.balsfjord == True:
         region = get_test_region_avgrensning_dir("balsfjord")
         run_performance_tests(models, crs, region, region_name="balsfjord",

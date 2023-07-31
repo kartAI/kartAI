@@ -50,7 +50,7 @@ def create_predicted_buildings_dataset(geom, checkpoint_name, data_config_path, 
     return all_predicted_buildings_dataset
 
 
-def create_building_dataset(geom, checkpoint_name, region, region_name, data_config_path, only_raw_predictions, skip_to_postprocess,
+def create_building_dataset(geom, checkpoint_name, region_name, data_config_path, skip_to_postprocess,
                             max_mosaic_batch_size=200, save_to='azure', num_processes=None):
 
     with open(data_config_path, "r") as config_file:
@@ -72,7 +72,7 @@ def create_building_dataset(geom, checkpoint_name, region, region_name, data_con
         region_name, checkpoint_name)
 
     produce_vector_buildings(
-        vector_output_dir, raster_predictions_path, config, max_mosaic_batch_size, only_raw_predictions, f"{region_name}_{checkpoint_name}", save_to, region)
+        vector_output_dir, raster_predictions_path, config, max_mosaic_batch_size, f"{region_name}_{checkpoint_name}", save_to)
 
 
 def save_dataset(data, filename, output_dir, modelname, save_to):
@@ -105,8 +105,8 @@ def run_ml_predictions(input_model_name, region_name, projection, input_model_su
     raster_output_dir = get_raster_predictions_dir(
         region_name, input_model_name)
 
-    raster_predictions_already_exist = os.path.exists(raster_output_dir)
-    if(not raster_predictions_already_exist):
+    raster_predictions_dir_already_exist = os.path.exists(raster_output_dir)
+    if(not raster_predictions_dir_already_exist):
         os.makedirs(raster_output_dir)
 
     model = get_ml_model(input_model_name, input_model_subfolder)
@@ -153,7 +153,8 @@ def run_ml_predictions(input_model_name, region_name, projection, input_model_su
 
 
 def predict(model, images_to_predict):
-    # return model.predict(images_to_predict)
+    if not model:
+        raise Exception('Prediction model is not defined - this can happen if your trying to run a segformer model. For this to work the prediction rasters have to be produced in a different repository, and then copied to the results folder')
     return model(tf.convert_to_tensor(images_to_predict), training=False).numpy()
 
 
@@ -191,6 +192,10 @@ def prepare_dataset_to_predict(region_name, geom, config_path, num_processes=Non
 
 def get_ml_model(input_model_name, input_model_subfolder=None):
 
+    if input_model_name.includes("segformer"):
+        print("segformer model not supported - skipping")
+        return
+
     checkpoint_path = get_checkpoint_path(
         input_model_name, input_model_subfolder)
 
@@ -211,9 +216,10 @@ def get_ml_model(input_model_name, input_model_subfolder=None):
 
 
 def get_checkpoint_path(input_model_name, input_model_subfolder):
-    """Support fetching files for both old format and new format
-      Old: checkpoints saved directly to the model directory
-      New: subfolders containing the epoch and iou value area created with checkpoints files inside. This allows us to save different versions of the models
+    """Support fetching checkpoints from three different formats:
+      1: .h5 files saved directly to checkpoints folder
+      2: New keras checkpoints format saved to a model directory
+      3: subfolders containing the epoch and iou value area created with checkpoints files inside. This allows us to save different versions of the models
     """
 
     input_model_path = os.path.join(env.get_env_variable(
@@ -222,6 +228,9 @@ def get_checkpoint_path(input_model_name, input_model_subfolder):
     if input_model_subfolder:
         return os.path.join(
             input_model_path, input_model_subfolder)
+
+    if not os.path.isdir(input_model_path):
+        return input_model_path+'.h5'
 
     existing_subfolders = os.listdir(input_model_path)
     sub_dirs = []
@@ -278,22 +287,22 @@ def get_image_dims(prediction_input_list, tupple_data):
 def get_images_to_predict(input_batch, img_dims, download_labels):
     images_to_predict = np.empty(
         (len(input_batch), img_dims[0], img_dims[1], img_dims[2]))
-    for i_batch in range(len(input_batch)):
+    for index, sample in enumerate(input_batch, start=0):
         # Open/download image and label
-        gdal_image = input_batch[i_batch]['image'].array
+        gdal_image = sample['image'].array
 
         if(download_labels):
             # Call code in order to download label which is needed later on
-            input_batch[i_batch]['label'].array
+            sample['label'].array
 
         image = gdal_image.transpose((1, 2, 0))
-        if('lidar' in input_batch[i_batch]):
-            lidar = input_batch[i_batch]['lidar'].array.reshape(
+        if('lidar' in sample):
+            lidar = sample['lidar'].array.reshape(
                 512, 512, 1)
             combined_arr = np.concatenate((image, lidar), axis=2)
-            images_to_predict[i_batch, ] = combined_arr
+            images_to_predict[index, ] = combined_arr
         else:
-            images_to_predict[i_batch, ] = image
+            images_to_predict[index, ] = image
 
     return images_to_predict
 
@@ -317,7 +326,7 @@ def get_tuples_to_predict(input_batch):
     return tupples_to_predict
 
 
-def produce_vector_buildings(output_dir, raster_predictions_path, config, max_batch_size, only_raw_predictions, modelname, save_to, region):
+def produce_vector_buildings(output_dir, raster_predictions_path, config, max_batch_size, modelname, save_to):
     predictions_path = sorted(
         glob.glob(raster_predictions_path))
     print('output_dir', output_dir)
@@ -340,37 +349,14 @@ def produce_vector_buildings(output_dir, raster_predictions_path, config, max_ba
             batch_prediction_paths = predictions_path[i *
                                                       batch_size:i*batch_size+batch_size]
 
-        if only_raw_predictions == False:
-            print('first in batch predictions', batch_prediction_paths[0])
-            # Check if there are data in this batch
-            new_tilbygg_dataset, new_frittliggende_bygg_dataset, existing_buildings_dataset, all_predicted_buildings_dataset = create_categorised_predicted_buldings_vectordata(
-                batch_prediction_paths, config, region)
-
-            if all_predicted_buildings_dataset:  # Check if there are data in this batch
-                save_dataset(
-                    all_predicted_buildings_dataset, f'raw_predictions_{str(i)}.json', output_dir, modelname, save_to)
-
-                save_dataset(new_tilbygg_dataset,
-                             f'new_tilbygg_{str(i)}.json', output_dir, modelname, save_to)
-                save_dataset(new_frittliggende_bygg_dataset,
-                             f'new_frittliggende_bygg_{str(i)}.json', output_dir, modelname, save_to)
-                save_dataset(
-                    existing_buildings_dataset, f'existing_bygg_{str(i)}.json', output_dir, modelname, save_to)
-                # Free memory
-                del all_predicted_buildings_dataset
-                del new_tilbygg_dataset
-                del new_frittliggende_bygg_dataset
-                del existing_buildings_dataset
-            else:
-                print('no data in batch')
-        else:
-            all_predicted_buildings_dataset = create_all_predicted_buildings_vectordata(
-                batch_prediction_paths, config)
-            if all_predicted_buildings_dataset:
-                save_dataset(all_predicted_buildings_dataset,
-                             f'raw_predictions_{str(i)}.json', output_dir, modelname, save_to)
-                # Free memory
-                del all_predicted_buildings_dataset
+        
+        all_predicted_buildings_dataset = create_all_predicted_buildings_vectordata(
+            batch_prediction_paths, config)
+        if all_predicted_buildings_dataset:
+            save_dataset(all_predicted_buildings_dataset,
+                          f'raw_predictions_{str(i)}.json', output_dir, modelname, save_to)
+            # Free memory
+            del all_predicted_buildings_dataset
 
     print('---PROCESS COMPLETED')
 
@@ -422,50 +408,6 @@ def create_all_predicted_buildings_vectordata(predictions_path, config):
     return all_predicted_buildings_dataset.to_json()
 
 
-def create_categorised_predicted_buldings_vectordata(predictions_path, config, region):
-    crs = get_defined_crs_from_config(config)
-
-    all_predicted_buildings_dataset = get_all_predicted_buildings_dataset(
-        predictions_path, crs)
-
-    fkb_labels_dataset = get_fkb_labels(config, region)
-
-    if fkb_labels_dataset.empty or all_predicted_buildings_dataset.empty:
-        return None, None, None, None
-
-    new_buildings_dataset = get_new_buildings_dataset(
-        all_predicted_buildings_dataset, fkb_labels_dataset)
-
-    # Setting labels area in order to filter the following datasets
-    all_predicted_buildings_dataset['labels_area'] = all_predicted_buildings_dataset.geometry.area - \
-        new_buildings_dataset.geometry.area
-
-    new_frittliggende_bygg_dataset = get_new_frittliggende_dataset(
-        all_predicted_buildings_dataset)
-
-    new_tilbygg_dataset = get_tilbygg_dataset(
-        all_predicted_buildings_dataset, fkb_labels_dataset)
-
-    existing_buildings = get_existing_buildings_dataset(
-        all_predicted_buildings_dataset,  new_tilbygg_dataset, new_frittliggende_bygg_dataset)
-
-    # justering på datasettene
-
-    raw_prediction_imgs = get_raw_predictions(predictions_path)
-    full_img, full_transform = rasterio.merge.merge(raw_prediction_imgs)
-
-    new_tilbygg_dataset = perform_last_adjustments(
-        new_tilbygg_dataset, full_img, full_transform, crs)
-    new_frittliggende_bygg_dataset = perform_last_adjustments(
-        new_frittliggende_bygg_dataset, full_img, full_transform, crs)
-    existing_buildings = perform_last_adjustments(
-        existing_buildings, full_img, full_transform, crs)
-
-    all_predicted_buildings_dataset = add_probability_values(
-        all_predicted_buildings_dataset, full_img, full_transform, crs)
-
-    return new_tilbygg_dataset.to_json(), new_frittliggende_bygg_dataset.to_json(), existing_buildings.to_json(), all_predicted_buildings_dataset.to_json()
-
 
 def perform_last_adjustments(dataset, full_img, full_transform, crs):
     if dataset.empty:
@@ -473,12 +415,8 @@ def perform_last_adjustments(dataset, full_img, full_transform, crs):
     simplified_dataset = simplify_dataset(dataset)
     annotated_dataset = add_probability_values(
         simplified_dataset, full_img, full_transform, crs)
-    assign_crs(annotated_dataset, crs)
+    annotated_dataset.set_crs(crs)
     return annotated_dataset
-
-
-def assign_crs(dataframe, crs):
-    dataframe.set_crs(crs)
 
 
 def add_probability_values(dataset, full_img, full_transform, crs):
@@ -501,48 +439,6 @@ def simplify_dataset(dataset):
     return dataset
 
 
-def get_existing_buildings_dataset(all_predicted_buildings_dataset, new_tilbygg_dataset, new_frittliggende_bygg_dataset):
-    demolished_buildings = gp.overlay(
-        all_predicted_buildings_dataset, new_tilbygg_dataset, how='difference')
-    demolished_buildings = gp.overlay(
-        demolished_buildings, new_frittliggende_bygg_dataset, how='difference')
-
-    return demolished_buildings
-
-
-def get_tilbygg_dataset(all_predicted_buildings_dataset, labels_dataset):
-    predictions_minus_labels = gp.overlay(
-        all_predicted_buildings_dataset, labels_dataset, how='difference')
-
-    new_tilbygg_dataset = predictions_minus_labels.loc[
-        predictions_minus_labels['labels_area'] > 0]
-
-    # Clean up
-    minimized_new_tilbygg_dataset = new_tilbygg_dataset.geometry.buffer(-1)
-    boundary_dataset = minimized_new_tilbygg_dataset.loc[minimized_new_tilbygg_dataset.area > 0].buffer(
-        1.5)
-
-    new_tilbygg_dataset = new_tilbygg_dataset.loc[boundary_dataset.index]
-    new_tilbygg_dataset = gp.clip(new_tilbygg_dataset, boundary_dataset)
-
-    new_tilbygg_dataset['Type'] = 2
-
-    return new_tilbygg_dataset
-
-
-def get_new_frittliggende_dataset(all_predicted_buildings_dataset):
-    new_frittliggende_bygg_dataset = all_predicted_buildings_dataset.loc[
-        all_predicted_buildings_dataset['labels_area'] == 0]
-    new_frittliggende_bygg_dataset['Type'] = 1
-    return new_frittliggende_bygg_dataset
-
-
-def get_new_buildings_dataset(all_predicted_buildings_dataset, FKB_labels_dataset):
-    new_buildings = gp.overlay(
-        all_predicted_buildings_dataset, FKB_labels_dataset, how='difference')
-    new_buildings.index = new_buildings['b_id']
-    return new_buildings
-
 
 def get_fkb_labels(config, region_path):
     layer_spec = None
@@ -552,23 +448,25 @@ def get_fkb_labels(config, region_path):
 
     connectionPwd = env.get_env_variable(layer_spec['passwd'])
 
-    region_path = "training_data/regions/balsfjord_test_area.geojson"
     region_geojson_string = parse_region_arg(region_path, "text")
 
     table = layer_spec["table"].split(".datastore")[0]
     sql = f"""
-    SELECT geom
+    SELECT st_transform(geom, {layer_spec["srid"]}) as geom
     FROM "{table}".datastore n
-    WHERE ST_Intersects(geom::geometry, st_setsrid(ST_geomfromgeojson('{region_geojson_string}'),{layer_spec["srid"]}))
+    WHERE ST_Intersects(geom::geometry, st_transform(st_setsrid(ST_geomfromgeojson('{region_geojson_string}'),{layer_spec["srid"]}), 4326))
     """
+
     db_connection_url = f"postgresql://{layer_spec['user']}:{connectionPwd}@{layer_spec['host']}:{layer_spec['port']}/{layer_spec['database']}"
     con = create_engine(db_connection_url)
 
     df = gp.GeoDataFrame.from_postgis(sql, con)
-    df.set_crs("EPSG:"+layer_spec["srid"])
-    # TODO: remove the merging to better correct count for buildings?
-    all_labels_dissolved = merge_connected_geoms(df)
-    return all_labels_dissolved
+    df.set_crs(f"EPSG:{layer_spec['srid']}")
+    df = merge_connected_geoms(df)
+    df = df[df.geom_type != 'Point']
+    df = df[df.geom_type != 'LineString']
+    df = df[df.geom_type != 'MultiLineString']
+    return df
 
 
 def get_all_predicted_buildings_dataset(predictions_path, crs):
@@ -598,13 +496,13 @@ def get_all_predicted_buildings_dataset(predictions_path, crs):
 
     # Remove all buildings with area less than 1 square meter
     cleaned_dataset = dissolved_dataset.loc[dissolved_dataset.geometry.area > 1]
-    assign_crs(cleaned_dataset, crs)
+    cleaned_dataset.set_crs(crs)
     return cleaned_dataset
 
 
 def merge_connected_geoms(geoms):
     try:
-        dissolved_geoms = geoms.dissolve(by='value')
+        dissolved_geoms = geoms.dissolve()
         dissolved_geoms = dissolved_geoms.explode().reset_index(drop=True)
         return dissolved_geoms
     except Exception:
@@ -617,27 +515,6 @@ def get_valid_geoms(geoms):
     if geoms.empty:
         return geoms
     return geoms.geometry.buffer(0)
-
-
-def get_true_label_for_prediction_path(prediction_path, config, is_performance_test=False, region_name=None):
-    output_prediction_suffix = "prediction"
-    labels_folder = get_true_labels_folder(
-        config, is_performance_test, region_name)
-    label_name = Path(prediction_path).name.replace(
-        '_'+output_prediction_suffix, "")
-    label_path = os.path.join(labels_folder, label_name)
-    return label_path
-
-
-def get_true_labels_folder(config, is_performance_test=False, region_name=None):
-    tilegrid = config["TileGrid"]
-    cache_folder_name = f"{tilegrid['srid']}_{tilegrid['x0']}_{tilegrid['y0']}_{tilegrid['dx']}_{tilegrid['dy']}"
-    labelSourceName = get_label_source_name(
-        config, is_performance_test=is_performance_test, region_name=region_name)
-
-    byggDb_path = os.path.join(env.get_env_variable(
-        "cached_data_directory"), labelSourceName, cache_folder_name, "512")
-    return byggDb_path
 
 
 def get_label_source_name(config, region_name=None, is_performance_test=False,):

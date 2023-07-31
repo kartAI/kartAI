@@ -1,44 +1,21 @@
-import json
 import os
 import geopandas as gp
 import rasterio.merge
 from kartai.dataset.Iou_calculations import get_geo_data_frame
-from kartai.dataset.create_building_dataset import get_fkb_labels, get_new_buildings_dataset, get_new_frittliggende_dataset, get_raw_predictions, get_valid_geoms, merge_connected_geoms, perform_last_adjustments
-from kartai.dataset.test_area_utils import get_label_files_dir_for_test_region, get_test_region_avgrensning_dir
-from kartai.utils.crs_utils import get_defined_crs_from_config_path
+from kartai.dataset.create_building_dataset import get_raw_predictions, get_valid_geoms, perform_last_adjustments
+from kartai.dataset.test_area_utils import get_adjusted_labels_dir, get_test_region_avgrensning_dir
 
 
-def get_performance_count_for_detected_buildings(all_predicted_buildings_dataset, predictions_path, model_name, performance_output_dir, config_path, region_name, region):
-
-    with open(config_path, "r") as config_file:
-        config = json.load(config_file)
-
-    CRS_prosjektomrade = get_defined_crs_from_config_path(config_path)
-
-    FKB_labels_dataset = get_fkb_labels(
-        config, region)
-
-    new_buildings_dataset = get_new_buildings_dataset(
-        all_predicted_buildings_dataset, FKB_labels_dataset)
-
-    # Setting labels area in order to filter the following datasets
-    all_predicted_buildings_dataset['labels_area'] = all_predicted_buildings_dataset.geometry.area - \
-        new_buildings_dataset.geometry.area
-
+def get_performance_count_for_detected_buildings(all_predicted_buildings_dataset, predictions_path, true_labels, fkb_labels, new_buildings_fasit, CRS_prosjektomrade, model_name, performance_output_dir, region_name):
+    
     predicted_new_buildings = get_predicted_new_buildings(
-        all_predicted_buildings_dataset, predictions_path, CRS_prosjektomrade)
-
-    true_labels_dataset = get_merged_true_labels(
-        region_name, CRS_prosjektomrade)
+        all_predicted_buildings_dataset, fkb_labels, predictions_path, CRS_prosjektomrade)
 
     correctly_detected_buildings = get_correctly_detected_buildings(
-        true_labels_dataset, all_predicted_buildings_dataset)
-
-    new_buildings_fasit = get_new_buildings_fasit(
-        true_labels_dataset, FKB_labels_dataset)
+        true_labels, all_predicted_buildings_dataset)
 
     correctly_detected_new_buildings = get_correctly_detected_new_buildings(
-        new_buildings_fasit, predicted_new_buildings)
+        true_labels, all_predicted_buildings_dataset)
 
     wrongly_detected_buildings = get_wrongly_detected_frittliggende_bygg_dataset(
         predicted_new_buildings, new_buildings_fasit)
@@ -49,10 +26,11 @@ def get_performance_count_for_detected_buildings(all_predicted_buildings_dataset
 
     # Looking at all existing buildings not detected
     missing_frittliggende_buildings = get_all_missing_frittliggende_buildings(
-        true_labels_dataset, all_predicted_buildings_dataset)
+        true_labels, all_predicted_buildings_dataset)
 
     # Cut all datasets to test-region - the fetched prediction tiles cover area outside as well
-    area_to_predict = get_test_region_avgrensning_dir(region_name)
+    area_to_predict = get_test_region_avgrensning_dir(region_name) #TODO: use region instead
+    
     area_gdf = gp.read_file(area_to_predict)
     wrongly_detected_buildings = gp.clip(
         wrongly_detected_buildings, area_gdf)
@@ -141,16 +119,19 @@ def get_wrongly_detected_frittliggende_bygg_dataset(predicted_new_frittliggende_
 
 def get_correctly_detected_new_buildings(true_new_frittliggende_buildings, predicted_new_frittliggende_bygg_dataset):
     # Find true detected buildings
-    true_detected_buildings = gp.overlay(
-        true_new_frittliggende_buildings, predicted_new_frittliggende_bygg_dataset, how='intersection')
-    # Dissolve polygons that belong to the same building i labels, to avoid double several counts for same detection
+    true_detected_buildings = predicted_new_frittliggende_bygg_dataset.loc[~predicted_new_frittliggende_bygg_dataset.intersects(true_new_frittliggende_buildings.unary_union)]
+
+    # Dissolve polygons that belong to the same building in labels, to avoid several counts for the same detection
     true_detected_buildings = true_detected_buildings.dissolve(by='label_id')
     return true_detected_buildings
 
 
-def get_predicted_new_buildings(all_predicted_buildings_dataset, predictions_path, crs):
-    predicted_buildings_dataset = get_new_frittliggende_dataset(
-        all_predicted_buildings_dataset)
+def get_predicted_new_buildings(all_predicted_buildings_dataset, fkb_labels, predictions_path, crs):
+    """All predictions that are not in the labels. This returns a set of true and false positives, 
+    meaning predictions that area in fact buldings, but also predictions that are wrongly detected as buildings"""
+
+    #Get all predictions that doesn't overlap existing labels
+    predicted_buildings_dataset = all_predicted_buildings_dataset.loc[~all_predicted_buildings_dataset.intersects(fkb_labels.unary_union)]
 
     raw_prediction_imgs = get_raw_predictions(predictions_path)
     full_img, full_transform = rasterio.merge.merge(raw_prediction_imgs)
@@ -163,25 +144,26 @@ def get_predicted_new_buildings(all_predicted_buildings_dataset, predictions_pat
     return predicted_buildings_dataset
 
 
-def get_merged_true_labels(region_name, CRS_prosjektomrade):
-    true_labels_dataset = get_true_labels_dataset(
+def get_true_labels(region_name, CRS_prosjektomrade):
+    true_labels_dataset = get_adjusted_labels(
         region_name, CRS_prosjektomrade)
     # Adding value to dissolve by, want to dissolve all buildings
     true_labels_dataset['value'] = 1
     # Buffer up a little bit in order to merge buildings that are barely not connected, but that should be considered as one building
-    true_labels_dataset['geometry'] = true_labels_dataset.buffer(0.1)
-    true_labels_dataset = merge_connected_geoms(true_labels_dataset)
-
+    true_labels_dataset['geometry'] = true_labels_dataset.buffer(0)
     true_labels_dataset['label_id'] = true_labels_dataset.index
+    if true_labels_dataset.geometry.area.hasnans:
+        print("Some columns are missing area value - add them before using the adjusted dataset. Run a dissolve in qgis!")
+
     return true_labels_dataset
 
 
-def get_true_labels_dataset(region_name, CRS_prosjektomrade):
-
-    label_files = get_label_files_dir_for_test_region(region_name)
-    label_gdf = get_geo_data_frame(label_files, CRS_prosjektomrade)
-    label_gdf["geometry"] = get_valid_geoms(label_gdf)
-    return label_gdf
+def get_adjusted_labels(region_name, CRS_prosjektomrade):
+    """ Path to manually adjusted labels where every building is correctly annotated """
+    adjusted_label_dir = get_adjusted_labels_dir(region_name)
+    adjusted_labels_gdf = get_geo_data_frame(adjusted_label_dir, CRS_prosjektomrade)
+    adjusted_labels_gdf["geometry"] = get_valid_geoms(adjusted_labels_gdf)
+    return adjusted_labels_gdf
 
 
 def get_correctly_detected_buildings(true_labels_dataset, all_predicted_buildings_dataset):
@@ -199,17 +181,9 @@ def get_correctly_detected_buildings(true_labels_dataset, all_predicted_building
     return true_new_frittliggende_buildings
 
 
-def get_new_buildings_fasit(true_labels_dataset, labels_dataset):
-    # Find new buildings not in FKB
-    true_labels_minus_fkb_labels = gp.overlay(
-        true_labels_dataset, labels_dataset, how='difference')
-
-    true_labels_minus_fkb_labels.index = true_labels_minus_fkb_labels['label_id']
-
-    true_labels_minus_fkb_labels['rest_area_after_fkb_diff'] = true_labels_minus_fkb_labels.geometry.area - \
-        true_labels_dataset.geometry.area
-
-    true_new_frittliggende_buildings = true_labels_minus_fkb_labels.loc[
-        true_labels_minus_fkb_labels['rest_area_after_fkb_diff'] == 0]
-
+def get_new_buildings_fasit(true_labels, fkb_labels):
+    #Buffer up fkb-labels to avoid getting border of buildings as difference:
+    fkb_labels.buffer(0.3)
+    true_new_frittliggende_buildings = true_labels.loc[~true_labels.intersects(fkb_labels.unary_union)]
     return true_new_frittliggende_buildings
+
