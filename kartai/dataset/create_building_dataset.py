@@ -192,7 +192,7 @@ def prepare_dataset_to_predict(region_name, geom, config_path, num_processes=Non
 
 def get_ml_model(input_model_name, input_model_subfolder=None):
 
-    if input_model_name.includes("segformer"):
+    if "segformer" in input_model_name:
         print("segformer model not supported - skipping")
         return
 
@@ -409,10 +409,14 @@ def create_all_predicted_buildings_vectordata(predictions_path, config):
 
 
 
-def perform_last_adjustments(dataset, full_img, full_transform, crs):
-    if dataset.empty:
+def perform_last_adjustments(predictions_dataset, predictions_path, crs):
+    
+    raw_prediction_imgs = get_raw_predictions(predictions_path)
+    full_img, full_transform = rasterio.merge.merge(raw_prediction_imgs)
+    
+    if predictions_dataset.empty:
         return None
-    simplified_dataset = simplify_dataset(dataset)
+    simplified_dataset = simplify_dataset(predictions_dataset)
     annotated_dataset = add_probability_values(
         simplified_dataset, full_img, full_transform, crs)
     annotated_dataset.set_crs(crs)

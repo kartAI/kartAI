@@ -196,17 +196,16 @@ def run_performance_tests(models, crs, region, region_name, config_path):
 
         performance_output_dir = get_performance_output_dir(region_name)
 
-        false_count, true_count, true_new_buildings_count, fkb_missing_count, all_missing_count = get_performance_count_for_detected_buildings(
-            prediction_dataset_gdf, predictions_path, true_labels,fkb_labels, new_buildings_fasit,CRS_prosjektomrade, model_name, performance_output_dir, region_name)
+        false_count, true_count, true_new_buildings_count, all_missing_count = get_performance_count_for_detected_buildings(
+            prediction_dataset_gdf, predictions_path, true_labels,new_buildings_fasit, CRS_prosjektomrade, model_name, performance_output_dir, region_name)
 
         IoU = get_IoU_for_region(prediction_dataset_gdf, region_name, crs)
         print('False detected buildings:', false_count)
         print('True detected buildings:', true_count)
-        print('Missed new building (not in fkb):', fkb_missing_count)
         print('All missing buildings', all_missing_count)
 
         create_performance_metadata_file(region_name,
-                                         IoU, model_name, false_count, true_count, true_new_buildings_count, fkb_missing_count, all_missing_count)
+                                         IoU, model_name, false_count, true_count, true_new_buildings_count, all_missing_count)
 
         blobstorage.upload_model_performance_file(
             model_name + f'_{region_name}_performance', region_name)
@@ -261,7 +260,7 @@ def get_checkpoint_meta_file_dir(model_name):
         raise Exception("Cannot find meta file for model:", model_name)
 
 
-def create_performance_metadata_file(region_name, IoU, model_name, false_count, true_buildings_count, true_new_buildings_count, fkb_missing_count, all_missing_count):
+def create_performance_metadata_file(region_name, IoU, model_name, false_count, true_buildings_count, true_new_buildings_count, all_missing_count):
 
     out_folder = get_performance_output_dir(region_name)
 
@@ -282,7 +281,6 @@ def create_performance_metadata_file(region_name, IoU, model_name, false_count, 
         "Falske detekterte bygninger": false_count,
         "Manglende detekterte bygninger": all_missing_count,
         "Sanne detekterte 'nye' bygninger": true_new_buildings_count,
-        "Manglende detekterte 'nye' bygninger": fkb_missing_count,
         "training_params": {
             "val_iou_point_5": get_training_iou_results(training_metadata_file),
             "dataset": training_metadata_file['training_dataset_name'] if "training_dataset_name" in training_metadata_file else "kartai-stream",
