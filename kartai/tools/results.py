@@ -169,7 +169,9 @@ def run_performance_tests(models, crs, region, region_name, config_path):
     
     new_buildings_fasit.to_file("new_buildings_fasit.geojson", driver="GeoJSON", index=False)
     
-    
+    print("models", models)
+    #TODO: check
+    models =[models[3]]
     for model in models:
         model_name = Path(model).stem
         dataset_name, dataset_path, tupple_data = get_dataset_name_and_path(
@@ -179,15 +181,23 @@ def run_performance_tests(models, crs, region, region_name, config_path):
 
         iteration = models.index(model)
 
-        #TODO:
-        """  if(has_run_performance_check(model_name, region_name)):
+        if(has_run_performance_check(model_name, region_name)):
             continue
-        """
+        
 
         print(f'Start proccess for model {iteration} of {len(models)}')
 
-        run_ml_predictions(model_name, region_name+"_test_area", crs, input_model_subfolder=None, dataset_path_to_predict=dataset_path,
-                           skip_data_fetching=True, tupple_data=tupple_data, download_labels=True)
+
+        if "segformer" in model_name:
+            #In order to test a segformer model you have to create the raster predicitons in other repo, and then 
+            #copy them to the results folder. Checking if that folder exist:
+            raster_output_dir = get_raster_predictions_dir(region_name+"_test_area", model_name)
+            if not os.path.isdir(raster_output_dir):
+                raise Exception(f'Raster predictions for model {model_name} is not defined. Since it is a segformer model, the prediction rasters have to be produced in a different repository, and then copied to the results folder')
+        else:
+          run_ml_predictions(model_name, region_name+"_test_area", crs, input_model_subfolder=None, dataset_path_to_predict=dataset_path,
+                            skip_data_fetching=True, tupple_data=tupple_data, download_labels=True)
+        
         predictions_path = sorted(
             glob.glob(get_raster_predictions_dir(region_name+"_test_area", model)+f"/*{output_predictions_name}"))
 
@@ -197,7 +207,7 @@ def run_performance_tests(models, crs, region, region_name, config_path):
         performance_output_dir = get_performance_output_dir(region_name)
 
         false_count, true_count, true_new_buildings_count, all_missing_count = get_performance_count_for_detected_buildings(
-            prediction_dataset_gdf, predictions_path, true_labels,new_buildings_fasit, CRS_prosjektomrade, model_name, performance_output_dir, region_name)
+            prediction_dataset_gdf, predictions_path, true_labels, new_buildings_fasit, CRS_prosjektomrade, model_name, performance_output_dir, region_name)
 
         IoU = get_IoU_for_region(prediction_dataset_gdf, region_name, crs)
         print('False detected buildings:', false_count)

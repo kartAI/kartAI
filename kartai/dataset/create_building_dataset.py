@@ -18,7 +18,7 @@ from rasterstats import zonal_stats
 from kartai.datamodels_and_services.ImageSourceServices import Tile
 from kartai.utils.confidence import Confidence
 from kartai.utils.crs_utils import get_defined_crs_from_config, get_defined_crs_from_config_path, get_projection_from_config_path
-
+from kartai.tools.predict import save_predicted_images_as_geotiff
 from kartai.utils.dataset_utils import get_X_tuple
 from kartai.utils.geometry_utils import parse_region_arg
 from kartai.utils.prediction_utils import get_raster_predictions_dir, get_vector_predictions_dir
@@ -34,7 +34,14 @@ def create_predicted_buildings_dataset(geom, checkpoint_name, data_config_path, 
     skip_to_postprocess = False  # For testing
     projection = "EPSG:25832"
     if skip_to_postprocess == False:
-        run_ml_predictions(checkpoint_name, region_name, projection=projection,
+        if "segformer" in checkpoint_name:
+            #In order to test a segformer model you have to create the raster predicitons in other repo, and then 
+            #copy them to the results folder. Checking if that folder exist:
+            raster_output_dir = get_raster_predictions_dir(region_name, checkpoint_name)
+            if not os.path.isdir(raster_output_dir):
+                raise Exception(f'Raster predictions for model {checkpoint_name} is not defined. Since it is a segformer model, the prediction rasters have to be produced in a different repository, and then copied to the results folder')
+        else:
+          run_ml_predictions(checkpoint_name, region_name, projection=projection,
                            config_path=data_config_path, geom=geom)
 
         time.sleep(2)  # Wait for complete saving to disk
@@ -45,8 +52,7 @@ def create_predicted_buildings_dataset(geom, checkpoint_name, data_config_path, 
         glob.glob(raster_dir))
 
     crs = get_defined_crs_from_config_path(data_config_path)
-    all_predicted_buildings_dataset = get_all_predicted_buildings_dataset(
-        predictions_path, crs)
+    all_predicted_buildings_dataset = get_all_predicted_buildings_dataset(predictions_path, crs)
     return all_predicted_buildings_dataset
 
 
@@ -93,7 +99,6 @@ def save_dataset_locally(data, filename, output_dir):
 def run_ml_predictions(input_model_name, region_name, projection, input_model_subfolder=None, dataset_path_to_predict=None, config_path=None, geom=None,
                        skip_data_fetching=False, tupple_data=False, download_labels=False, batch_size=8,
                        save_to='local', num_processes=None):
-    from kartai.tools.predict import save_predicted_images_as_geotiff
 
     dataset_path_to_predict = dataset_path_to_predict if dataset_path_to_predict else get_dataset_to_predict_dir(
         region_name)
@@ -153,8 +158,6 @@ def run_ml_predictions(input_model_name, region_name, projection, input_model_su
 
 
 def predict(model, images_to_predict):
-    if not model:
-        raise Exception('Prediction model is not defined - this can happen if your trying to run a segformer model. For this to work the prediction rasters have to be produced in a different repository, and then copied to the results folder')
     return model(tf.convert_to_tensor(images_to_predict), training=False).numpy()
 
 
@@ -191,10 +194,6 @@ def prepare_dataset_to_predict(region_name, geom, config_path, num_processes=Non
 
 
 def get_ml_model(input_model_name, input_model_subfolder=None):
-
-    if "segformer" in input_model_name:
-        print("segformer model not supported - skipping")
-        return
 
     checkpoint_path = get_checkpoint_path(
         input_model_name, input_model_subfolder)
@@ -249,18 +248,7 @@ def get_checkpoint_path(input_model_name, input_model_subfolder):
                 best_metric = metric_in_sub_dir
                 best_checkpoint_path = sub_dir
 
-        return format_checkpoint_path(os.path.join(input_model_path, best_checkpoint_path))
-
-
-def format_checkpoint_path(checkpoint_path):
-    """Returns either directory for new tf checkpoint models, or the .h5 file"""
-
-    dir_content = os.listdir(checkpoint_path)
-    for file in dir_content:
-        if file == "tf_model.h5":
-            return os.path.join(checkpoint_path, "tf_model.h5")
-
-    return checkpoint_path
+        return os.path.join(input_model_path, best_checkpoint_path)
 
 
 def get_iou_from_pathname(path):
@@ -475,7 +463,7 @@ def get_fkb_labels(config, region_path):
 
 def get_all_predicted_buildings_dataset(predictions_path, crs):
 
-    prediction_tiles = gp.GeoDataFrame()
+    predictions = gp.GeoDataFrame()
 
     for prediction_path in predictions_path:
         raw_prediction_img = rasterio.open(
@@ -485,21 +473,20 @@ def get_all_predicted_buildings_dataset(predictions_path, crs):
         prediction_polygons = polygonize_mask(
             prediction_mask, raw_prediction_img, crs)
 
-        prediction_tiles = pd.concat(
-            [prediction_tiles, prediction_polygons], ignore_index=True)
+        predictions = pd.concat(
+            [predictions, prediction_polygons], ignore_index=True)
 
-    if prediction_tiles.empty:
-        return prediction_tiles
+    if predictions.empty:
+        return predictions
 
-    prediction_tiles['geometry'] = get_valid_geoms(prediction_tiles)
-
-    dissolved_dataset = merge_connected_geoms(prediction_tiles)
-    dissolved_dataset['b_id'] = dissolved_dataset.index
-    dissolved_dataset['area'] = dissolved_dataset.geometry.area
-    dissolved_dataset['Type'] = 0  # Setting class 0 -> existing building
+    
+    # Remove all buildings with area less than 1 square meter
+    predictions['geometry'] = get_valid_geoms(predictions)
+    predictions = predictions.loc[predictions.geometry.area > 1]
+    merged_predictions = merge_connected_geoms(predictions)
 
     # Remove all buildings with area less than 1 square meter
-    cleaned_dataset = dissolved_dataset.loc[dissolved_dataset.geometry.area > 1]
+    cleaned_dataset = merged_predictions.loc[merged_predictions.geometry.area > 1]
     cleaned_dataset.set_crs(crs)
     return cleaned_dataset
 
