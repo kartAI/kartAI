@@ -35,14 +35,16 @@ def create_predicted_buildings_dataset(geom, checkpoint_name, data_config_path, 
     projection = "EPSG:25832"
     if skip_to_postprocess == False:
         if "segformer" in checkpoint_name:
-            #In order to test a segformer model you have to create the raster predicitons in other repo, and then 
-            #copy them to the results folder. Checking if that folder exist:
-            raster_output_dir = get_raster_predictions_dir(region_name, checkpoint_name)
+            # In order to test a segformer model you have to create the raster predictions in other repo, and then
+            # copy them to the results folder. Checking if that folder exist:
+            raster_output_dir = get_raster_predictions_dir(
+                region_name, checkpoint_name)
             if not os.path.isdir(raster_output_dir):
-                raise Exception(f'Raster predictions for model {checkpoint_name} is not defined. Since it is a segformer model, the prediction rasters have to be produced in a different repository, and then copied to the results folder')
+                raise Exception(
+                    f'Raster predictions for model {checkpoint_name} is not defined. Since it is a segformer model, the prediction rasters have to be produced in a different repository, and then copied to the results folder')
         else:
-          run_ml_predictions(checkpoint_name, region_name, projection=projection,
-                           config_path=data_config_path, geom=geom)
+            run_ml_predictions(checkpoint_name, region_name, projection=projection,
+                               config_path=data_config_path, geom=geom)
 
         time.sleep(2)  # Wait for complete saving to disk
 
@@ -52,7 +54,8 @@ def create_predicted_buildings_dataset(geom, checkpoint_name, data_config_path, 
         glob.glob(raster_dir))
 
     crs = get_defined_crs_from_config_path(data_config_path)
-    all_predicted_buildings_dataset = get_all_predicted_buildings_dataset(predictions_path, crs)
+    all_predicted_buildings_dataset = get_all_predicted_buildings_dataset(
+        predictions_path, crs)
     return all_predicted_buildings_dataset
 
 
@@ -82,7 +85,7 @@ def create_building_dataset(geom, checkpoint_name, region_name, data_config_path
 
 
 def save_dataset(data, filename, output_dir, modelname, save_to):
-    if(save_to == 'azure'):
+    if (save_to == 'azure'):
         upload_data_to_azure(data,  modelname+'/'+filename, env.get_env_variable(
             "building_datasets_container_name"))
     else:
@@ -99,7 +102,9 @@ def save_dataset_locally(data, filename, output_dir):
 def run_ml_predictions(input_model_name, region_name, projection, input_model_subfolder=None, dataset_path_to_predict=None, config_path=None, geom=None,
                        skip_data_fetching=False, tupple_data=False, download_labels=False, batch_size=8,
                        save_to='local', num_processes=None):
+    """Running prediction on a dataset containing tiled input data, or a region to created data for """
 
+    print("\nRunning ML prediction")
     dataset_path_to_predict = dataset_path_to_predict if dataset_path_to_predict else get_dataset_to_predict_dir(
         region_name)
 
@@ -111,7 +116,7 @@ def run_ml_predictions(input_model_name, region_name, projection, input_model_su
         region_name, input_model_name)
 
     raster_predictions_dir_already_exist = os.path.exists(raster_output_dir)
-    if(not raster_predictions_dir_already_exist):
+    if (not raster_predictions_dir_already_exist):
         os.makedirs(raster_output_dir)
 
     model = get_ml_model(input_model_name, input_model_subfolder)
@@ -138,7 +143,7 @@ def run_ml_predictions(input_model_name, region_name, projection, input_model_su
         # Check if batch is already produced and saved:
         last_in_batch = Path(
             input_batch[-1]['image'].file_path).stem+"_prediction.tif"
-        if(os.path.exists(os.path.join(raster_output_dir, last_in_batch))):
+        if (os.path.exists(os.path.join(raster_output_dir, last_in_batch))):
             print("batch already produced - skipping to next")
             continue
 
@@ -182,7 +187,7 @@ def prepare_dataset_to_predict(region_name, geom, config_path, num_processes=Non
     dataset_path_to_predict = get_dataset_to_predict_dir(region_name)
 
     # Create ortofoto tiles for bbox area
-    if(os.path.exists(dataset_path_to_predict)):
+    if (os.path.exists(dataset_path_to_predict)):
         skip_dataset_fetching = input(
             f"A dataset for area name {region_name} already exist. You can either use existing dataset by skipping step, or create a new. \nSkip? Answer 'y' \nCreate new? Answer 'n':\n ")
         if not skip_dataset_fetching == 'y':
@@ -261,11 +266,11 @@ def get_iou_from_pathname(path):
 
 def get_image_dims(prediction_input_list, tupple_data):
     if not tupple_data:
-        if("image" in prediction_input_list[0] and "lidar" in prediction_input_list[0]):
+        if ("image" in prediction_input_list[0] and "lidar" in prediction_input_list[0]):
             img_dims = [512, 512, 4]
-        elif("image" in prediction_input_list[0]):
+        elif ("image" in prediction_input_list[0]):
             img_dims = [512, 512, 3]
-        elif("lidar" in prediction_input_list[0]):
+        elif ("lidar" in prediction_input_list[0]):
             img_dims = [512, 512, 1]
         else:
             sys.exit("Unknown input type dimensions")
@@ -279,12 +284,12 @@ def get_images_to_predict(input_batch, img_dims, download_labels):
         # Open/download image and label
         gdal_image = sample['image'].array
 
-        if(download_labels):
+        if (download_labels):
             # Call code in order to download label which is needed later on
             sample['label'].array
 
         image = gdal_image.transpose((1, 2, 0))
-        if('lidar' in sample):
+        if ('lidar' in sample):
             lidar = sample['lidar'].array.reshape(
                 512, 512, 1)
             combined_arr = np.concatenate((image, lidar), axis=2)
@@ -329,7 +334,7 @@ def produce_vector_buildings(output_dir, raster_predictions_path, config, max_ba
     for i in range(num_splits):
         print(
             f'Starting post processing of resulting labels, iteration {i} of {num_splits}, images {i*batch_size} to {i*batch_size+batch_size}')  # image 67400 to 67600
-        if(i == num_splits):
+        if (i == num_splits):
             # Last run, batch size might be lower
             batch_prediction_paths = predictions_path[i *
                                                       batch_size:(len(predictions_path)-1)]
@@ -337,12 +342,11 @@ def produce_vector_buildings(output_dir, raster_predictions_path, config, max_ba
             batch_prediction_paths = predictions_path[i *
                                                       batch_size:i*batch_size+batch_size]
 
-        
         all_predicted_buildings_dataset = create_all_predicted_buildings_vectordata(
             batch_prediction_paths, config)
         if all_predicted_buildings_dataset:
             save_dataset(all_predicted_buildings_dataset,
-                          f'raw_predictions_{str(i)}.json', output_dir, modelname, save_to)
+                         f'raw_predictions_{str(i)}.json', output_dir, modelname, save_to)
             # Free memory
             del all_predicted_buildings_dataset
 
@@ -356,13 +360,17 @@ def create_normalized_prediction_mask(img):
 
 
 def polygonize_mask(mask, img, crs):
+    """Create vectors of the mask"""
     shapes = rasterio.features.shapes(
         mask, connectivity=4, transform=img.transform)
 
     records = [{"geometry": geometry, "properties": {"value": value}}
                for (geometry, value) in shapes if value == 1]
     geoms = list(records)
-    polygons = gp.GeoDataFrame.from_features(geoms, crs=crs)
+
+    # Return empty geodataframe if there is no geometry within the mask/tile
+    polygons = gp.GeoDataFrame.from_features(
+        geoms, crs=crs) if len(geoms) > 0 else gp.GeoDataFrame()
     return polygons
 
 
@@ -387,40 +395,27 @@ def create_all_predicted_buildings_vectordata(predictions_path, config):
 
     # justering på datasettene
 
-    raw_prediction_imgs = get_raw_predictions(predictions_path)
-    full_img, full_transform = rasterio.merge.merge(raw_prediction_imgs)
-
-    all_predicted_buildings_dataset = add_probability_values(
-        all_predicted_buildings_dataset, full_img, full_transform, crs)
+    all_predicted_buildings_dataset = add_confidence_values(
+        all_predicted_buildings_dataset, predictions_path)
 
     return all_predicted_buildings_dataset.to_json()
 
 
-
-def perform_last_adjustments(predictions_dataset, predictions_path, crs):
-    
+def add_confidence_values(dataset, predictions_path):
+    """Adding confidence values from prediction to the vector data"""
     raw_prediction_imgs = get_raw_predictions(predictions_path)
     full_img, full_transform = rasterio.merge.merge(raw_prediction_imgs)
-    
-    if predictions_dataset.empty:
-        return None
-    simplified_dataset = simplify_dataset(predictions_dataset)
-    annotated_dataset = add_probability_values(
-        simplified_dataset, full_img, full_transform, crs)
-    annotated_dataset.set_crs(crs)
-    return annotated_dataset
 
-
-def add_probability_values(dataset, full_img, full_transform, crs):
     dataset = dataset.reset_index(drop=True)
     probabilites = zonal_stats(dataset.geometry,
-                               full_img[0], affine=full_transform, stats='mean')
+                               full_img[0], affine=full_transform, stats='mean', nodata=0)
 
-    dataset['prob'] = gp.GeoDataFrame(probabilites, crs=crs)
+    dataset['prob'] = gp.GeoDataFrame(probabilites)
     return dataset
 
 
 def simplify_dataset(dataset):
+    """Simplify the data by removing small areas, and removing points from the polygons by running simplify"""
     # Remove all small buildings in dataset
     dataset = dataset.loc[dataset.geometry.area > 1]
 
@@ -431,8 +426,8 @@ def simplify_dataset(dataset):
     return dataset
 
 
-
-def get_fkb_labels(config, region_path):
+def get_fkb_labels(config, region_path, crs):
+    """Get labels from FKB data"""
     layer_spec = None
     for source_config in config["ImageSources"]:
         if source_config["type"] == "PostgresImageSource":
@@ -442,10 +437,16 @@ def get_fkb_labels(config, region_path):
 
     region_geojson_string = parse_region_arg(region_path, "text")
 
-    table = layer_spec["table"].split(".datastore")[0]
+    # Tables need to have quotes around each table/subtable name
+    subtables = layer_spec["table"].split(".")  # Splitting subtables
+    table_string = ""
+    for index, table in enumerate(subtables):
+        last_item = index == len(subtables)-1
+        table_string += f'"{table}".' if not last_item else f'"{table}"'
+
     sql = f"""
     SELECT st_transform(geom, {layer_spec["srid"]}) as geom
-    FROM "{table}".datastore n
+    FROM {table_string} n
     WHERE ST_Intersects(geom::geometry, st_transform(st_setsrid(ST_geomfromgeojson('{region_geojson_string}'),{layer_spec["srid"]}), 4326))
     """
 
@@ -453,16 +454,21 @@ def get_fkb_labels(config, region_path):
     con = create_engine(db_connection_url)
 
     df = gp.GeoDataFrame.from_postgis(sql, con)
-    df.set_crs(f"EPSG:{layer_spec['srid']}")
+    df = df.set_crs(f"EPSG:{layer_spec['srid']}")
     df = merge_connected_geoms(df)
     df = df[df.geom_type != 'Point']
     df = df[df.geom_type != 'LineString']
     df = df[df.geom_type != 'MultiLineString']
+
+    df = clip_to_polygon(df, region_path, crs)
+
     return df
 
 
-def get_all_predicted_buildings_dataset(predictions_path, crs):
+def get_all_predicted_buildings_dataset(predictions_path, crs, region_dir=None):
+    """Create a vector dataset of the prediction raster tiles"""
 
+    print("\nCreating vectordata from prediction tiles")
     predictions = gp.GeoDataFrame()
 
     for prediction_path in predictions_path:
@@ -479,16 +485,32 @@ def get_all_predicted_buildings_dataset(predictions_path, crs):
     if predictions.empty:
         return predictions
 
-    
     # Remove all buildings with area less than 1 square meter
     predictions['geometry'] = get_valid_geoms(predictions)
-    predictions = predictions.loc[predictions.geometry.area > 1]
     merged_predictions = merge_connected_geoms(predictions)
+
+    # Remove points in polygons to get better building-look
+    merged_predictions['geometry'] = merged_predictions.simplify(
+        tolerance=0.25)
 
     # Remove all buildings with area less than 1 square meter
     cleaned_dataset = merged_predictions.loc[merged_predictions.geometry.area > 1]
-    cleaned_dataset.set_crs(crs)
+
+    cleaned_dataset.set_crs(crs, inplace=True)
+
+    if region_dir:
+        cleaned_dataset = clip_to_polygon(cleaned_dataset, region_dir, crs)
+
     return cleaned_dataset
+
+
+def clip_to_polygon(dataset, polygon_file, crs):
+    """Clip a dataset to a polygon"""
+    area_gdf = gp.read_file(polygon_file)
+    area_gdf.set_crs(crs, allow_override=True, inplace=True)
+    dataset = gp.clip(
+        dataset, area_gdf)
+    return dataset
 
 
 def merge_connected_geoms(geoms):
@@ -508,15 +530,16 @@ def get_valid_geoms(geoms):
     return geoms.geometry.buffer(0)
 
 
-def get_label_source_name(config, region_name=None, is_performance_test=False,):
+def get_label_source_name(config, region_name=None, is_performance_test=False):
+
     labelSourceName = None
     if is_performance_test and region_name == "ksand":
         labelSourceName = "Bygg_ksand_manuell_prosjekt"
     else:
         for source in config["ImageSources"]:
-            if(source["type"] == "PostgresImageSource"):
+            if (source["type"] == "PostgresImageSource"):
                 labelSourceName = source["name"]
 
-    if(not labelSourceName):
+    if (not labelSourceName):
         raise Exception("Could not find PostgresImageSource in config")
     return labelSourceName

@@ -28,11 +28,11 @@ The repository allows you to easily create training data for any sort of vector 
   - [Train script](#train-script)
   - [Run multiple training processes](#run-multiple-training-processes)
 - [Evaluating the models](#evaluating-the-models)
-  - [IoU result table](#iou-result-table)
-  - [Building count result table](#building-count-result-table)
+  - [Result table](#result-table)
 - [Using the trained models](#using-the-trained-models)
   - [Predict](#predict)
   - [Create vectordata](#create-vectordata)
+  - [Create countour vectordata](#create-contour-vectordata)
 
 ## Prerequisites
 
@@ -381,20 +381,20 @@ Windows:
 We have created an automatic process for generating a result table that gives an overview of all the trained models performance.
 
 
-### IoU result table
+### Result table
 
 Get a complete view of performance of the different models.
 The script opens a GUI table to view results, as well as creating an excel file.
 
-By adding the parameter `-ksand True` you will instead get a full list of how each model is performing on the given test area for the project.
-
+By default the module shows an overview of IoU from validation during training.
+By passing a test_region we will run a prediction on the given region, and perform a comparison to a manually edited dataset with labels to see how the model actually performs.
 
 Arguments:
 
-| Argument | Description                                   |
-| -------- | :-------------------------------------------- |
-| -ksand     | Wether to run test on ksand area, which counts numbers of detected buildings |
-| -skip_download     | Wether to skip downloading models from azure |
+| Argument | Description |Required | Type | Default |
+| -------- | :-------------------------------------------- | -------- |-------------------- | -------- |
+| -test_region     | Run test on a region, and get counts of detected buildings, missing buildings and false buildings | No | "ksand" or "balsfjord" | None |
+| -download_models     | Downloading all trained models from azure | No | bool | False
 
 Unix:
 
@@ -403,7 +403,6 @@ Unix:
 Windows:
 
 `kai.bat results`
-
 
 ## Using the trained models
 
@@ -438,8 +437,9 @@ Create a vector dataset with predicted data from a chosen ML model, on a chosen 
 Running creation of vectordata will download to wanted model from azure, before running prediction.
 
 This module will:
+
 - Create a dataset for the given region. Dataset is written to `training_data/created_datasets/for_prediction/{region_name}.json`
-- The chosen ML model (given with the -cn argument) will be used to run predicitons on each of the images in the created dataset, and save the resulting grey-scale rasters to `results/{region_name}/{checkpoint_name}/rasters`
+- The chosen ML model (given with the -cn argument) will be used to run predictions on each of the images in the created dataset, and save the resulting grey-scale rasters to `results/{region_name}/{checkpoint_name}/rasters`
 - Finally gdal_polygonize is used to create vector geojson layers for batches of data. These layers area written to `results/{region_name}/{checkpoint_name}/vectors`
 
 Arguments:
@@ -468,8 +468,9 @@ Windows:
 
 Create a contour vector dataset with predicted data from a chosen ML model, on a chosen region.
 This module will:
+
 - Create a dataset for the given region. Dataset is written to `training_data/created_datasets/for_prediction/{region_name}.json`
-- The chosen ML model (given with the -cn argument) will be used to run predicitons on each of the images in the created dataset, and save the resulting grey-scale rasters to `results/{region_name}/{checkpoint_name}/rasters`
+- The chosen ML model (given with the -cn argument) will be used to run predictions on each of the images in the created dataset, and save the resulting grey-scale rasters to `results/{region_name}/{checkpoint_name}/rasters`
 - Finally gdal_countour is used to create a contour geojson layer for the entire region (using a virtual raster layer produced in previous step). This layer is written to `results/{region_name}/{checkpoint_name}/contour`
 
 The script will download to wanted model from azure if it is not already downloaded, before running prediction.

@@ -1,5 +1,3 @@
-import os
-import env
 import argparse
 from kartai.dataset.create_building_dataset import create_building_dataset
 from kartai.utils.geometry_utils import parse_region_arg
@@ -32,7 +30,7 @@ def add_parser(subparser):
 
     parser.add_argument("-c", "--config_path", type=str,
                         help="Data configuration file", required=True)
-    
+
     parser.add_argument("-p", "--skip_to_postprocess", type=str, required=False, default='false',
                         help="Whether to skip directly to postprocessing, and not look for needed downloaded data. Typically used if you have already run production of dataset for same area, but with different model")
 
@@ -46,7 +44,8 @@ def main(args):
 
     geom = parse_region_arg(args.region)
 
-    skip_to_postprocess = False if args.skip_to_postprocess == 'false' or args.skip_to_postprocess == None else True
+    skip_to_postprocess = False if args.skip_to_postprocess in [
+        "false", None] else True
 
     print('skip_to_postprocess', skip_to_postprocess)
 
