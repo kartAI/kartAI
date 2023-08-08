@@ -17,7 +17,7 @@ import rasterio.merge
 from rasterstats import zonal_stats
 from kartai.datamodels_and_services.ImageSourceServices import Tile
 from kartai.utils.confidence import Confidence
-from kartai.utils.crs_utils import get_defined_crs_from_config, get_defined_crs_from_config_path
+from kartai.utils.crs_utils import get_defined_crs_from_config
 from kartai.tools.predict import save_predicted_images_as_geotiff
 from kartai.utils.dataset_utils import get_X_tuple
 from kartai.utils.geometry_utils import parse_region_arg
@@ -26,6 +26,8 @@ from kartai.tools.train import getLoss
 from kartai.metrics.meanIoU import (IoU, IoU_fz, Iou_point_5, Iou_point_6,
                                     Iou_point_7, Iou_point_8, Iou_point_9)
 from sqlalchemy import create_engine
+from kartai.dataset.PredictionArea import fetch_data_to_predict
+
 
 # Used by API
 
@@ -138,6 +140,7 @@ def run_ml_predictions(input_model_name, region_name, projection, input_model_su
 
 
 def batch_already_produced(input_batch, raster_output_dir):
+    """Checks whether a raster prediction for the last image in the batch is already on created"""
     last_in_batch = Path(
         input_batch[-1]['image'].file_path).stem+"_prediction.tif"
     return os.path.exists(os.path.join(raster_output_dir, last_in_batch))
@@ -163,7 +166,6 @@ def get_dataset_to_predict_dir(region_name, suffix=None):
 
 
 def prepare_dataset_to_predict(region_name, geom, config, num_processes=None):
-    from kartai.dataset.PredictionArea import fetch_data_to_predict
 
     dataset_path_to_predict = get_dataset_to_predict_dir(region_name)
 
