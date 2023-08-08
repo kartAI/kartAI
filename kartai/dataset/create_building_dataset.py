@@ -17,11 +17,11 @@ import rasterio.merge
 from rasterstats import zonal_stats
 from kartai.datamodels_and_services.ImageSourceServices import Tile
 from kartai.utils.confidence import Confidence
-from kartai.utils.crs_utils import get_defined_crs_from_config, get_defined_crs_from_config_path, get_projection_from_config_path
+from kartai.utils.crs_utils import get_defined_crs_from_config, get_defined_crs_from_config_path
 from kartai.tools.predict import save_predicted_images_as_geotiff
 from kartai.utils.dataset_utils import get_X_tuple
 from kartai.utils.geometry_utils import parse_region_arg
-from kartai.utils.prediction_utils import get_raster_predictions_dir, get_vector_predictions_dir
+from kartai.utils.prediction_utils import get_raster_predictions_dir
 from kartai.tools.train import getLoss
 from kartai.metrics.meanIoU import (IoU, IoU_fz, Iou_point_5, Iou_point_6,
                                     Iou_point_7, Iou_point_8, Iou_point_9)
@@ -30,7 +30,7 @@ from sqlalchemy import create_engine
 # Used by API
 
 
-def create_predicted_buildings_dataset(geom, checkpoint_name, data_config_path, region_name):
+def create_predicted_buildings_dataset(geom, checkpoint_name, config, region_name):
     skip_to_postprocess = False  # For testing
     projection = "EPSG:25832"
     if skip_to_postprocess == False:
@@ -44,7 +44,7 @@ def create_predicted_buildings_dataset(geom, checkpoint_name, data_config_path, 
                     f'Raster predictions for model {checkpoint_name} is not defined. Since it is a segformer model, the prediction rasters have to be produced in a different repository, and then copied to the results folder')
         else:
             run_ml_predictions(checkpoint_name, region_name, projection=projection,
-                               config_path=data_config_path, geom=geom)
+                               config=config, geom=geom)
 
         time.sleep(2)  # Wait for complete saving to disk
 
@@ -53,35 +53,10 @@ def create_predicted_buildings_dataset(geom, checkpoint_name, data_config_path, 
     predictions_path = sorted(
         glob.glob(raster_dir))
 
-    crs = get_defined_crs_from_config_path(data_config_path)
+    crs = get_defined_crs_from_config(config)
     all_predicted_buildings_dataset = get_all_predicted_buildings_dataset(
         predictions_path, crs)
     return all_predicted_buildings_dataset
-
-
-def create_building_dataset(geom, checkpoint_name, region_name, data_config_path, skip_to_postprocess,
-                            max_mosaic_batch_size=200, save_to='azure', num_processes=None):
-
-    with open(data_config_path, "r") as config_file:
-        config = json.load(config_file)
-
-    if not skip_to_postprocess:
-        projection = get_projection_from_config_path(data_config_path)
-
-        run_ml_predictions(checkpoint_name, region_name, projection,
-                           config_path=data_config_path, geom=geom, num_processes=num_processes)
-
-        time.sleep(2)  # Wait for complete saving to disk
-
-    print('Starting postprocess')
-
-    vector_output_dir = get_vector_predictions_dir(
-        region_name, checkpoint_name)
-    raster_predictions_path = get_raster_predictions_dir(
-        region_name, checkpoint_name)
-
-    produce_vector_buildings(
-        vector_output_dir, raster_predictions_path, config, max_mosaic_batch_size, f"{region_name}_{checkpoint_name}", save_to)
 
 
 def save_dataset(data, filename, output_dir, modelname, save_to):
@@ -93,13 +68,16 @@ def save_dataset(data, filename, output_dir, modelname, save_to):
 
 
 def save_dataset_locally(data, filename, output_dir):
+    """Save dataset"""
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
     file = open(os.path.join(
         output_dir, filename), 'w')
     file.write(data)
     file.close()
 
 
-def run_ml_predictions(input_model_name, region_name, projection, input_model_subfolder=None, dataset_path_to_predict=None, config_path=None, geom=None,
+def run_ml_predictions(input_model_name, region_name, projection, input_model_subfolder=None, dataset_path_to_predict=None, config=None, geom=None,
                        skip_data_fetching=False, tupple_data=False, download_labels=False, batch_size=8,
                        save_to='local', num_processes=None):
     """Running prediction on a dataset containing tiled input data, or a region to created data for """
@@ -110,7 +88,7 @@ def run_ml_predictions(input_model_name, region_name, projection, input_model_su
 
     if skip_data_fetching == False:
         prepare_dataset_to_predict(
-            region_name, geom, config_path, num_processes=num_processes)
+            region_name, geom, config, num_processes=num_processes)
 
     raster_output_dir = get_raster_predictions_dir(
         region_name, input_model_name)
@@ -140,10 +118,7 @@ def run_ml_predictions(input_model_name, region_name, projection, input_model_su
         input_batch = prediction_input_list[batch_size *
                                             i:batch_size*i+batch_size]
 
-        # Check if batch is already produced and saved:
-        last_in_batch = Path(
-            input_batch[-1]['image'].file_path).stem+"_prediction.tif"
-        if (os.path.exists(os.path.join(raster_output_dir, last_in_batch))):
+        if batch_already_produced(input_batch, raster_output_dir):
             print("batch already produced - skipping to next")
             continue
 
@@ -160,6 +135,12 @@ def run_ml_predictions(input_model_name, region_name, projection, input_model_su
 
         save_predicted_images_as_geotiff(np_pred_results_iteration, input_batch,
                                          raster_output_dir, projection)
+
+
+def batch_already_produced(input_batch, raster_output_dir):
+    last_in_batch = Path(
+        input_batch[-1]['image'].file_path).stem+"_prediction.tif"
+    return os.path.exists(os.path.join(raster_output_dir, last_in_batch))
 
 
 def predict(model, images_to_predict):
@@ -181,7 +162,7 @@ def get_dataset_to_predict_dir(region_name, suffix=None):
     return dataset_path_to_predict
 
 
-def prepare_dataset_to_predict(region_name, geom, config_path, num_processes=None):
+def prepare_dataset_to_predict(region_name, geom, config, num_processes=None):
     from kartai.dataset.PredictionArea import fetch_data_to_predict
 
     dataset_path_to_predict = get_dataset_to_predict_dir(region_name)
@@ -192,10 +173,10 @@ def prepare_dataset_to_predict(region_name, geom, config_path, num_processes=Non
             f"A dataset for area name {region_name} already exist. You can either use existing dataset by skipping step, or create a new. \nSkip? Answer 'y' \nCreate new? Answer 'n':\n ")
         if not skip_dataset_fetching == 'y':
             fetch_data_to_predict(
-                geom, config_path, dataset_path_to_predict, num_processes=num_processes)
+                geom, config, dataset_path_to_predict, num_processes=num_processes)
     else:
         fetch_data_to_predict(
-            geom, config_path, dataset_path_to_predict, num_processes=num_processes)
+            geom, config, dataset_path_to_predict, num_processes=num_processes)
 
 
 def get_ml_model(input_model_name, input_model_subfolder=None):
@@ -319,10 +300,14 @@ def get_tuples_to_predict(input_batch):
     return tupples_to_predict
 
 
-def produce_vector_buildings(output_dir, raster_predictions_path, config, max_batch_size, modelname, save_to):
-    predictions_path = sorted(
-        glob.glob(raster_predictions_path))
+def produce_vector_buildings(output_dir, raster_dir, config, max_batch_size, modelname, save_to):
+
+    raster_filenames = os.listdir(raster_dir)
     print('output_dir', output_dir)
+    predictions_path = []
+    for filename in raster_filenames:
+        predictions_path.append(os.path.join(raster_dir, filename))
+
     print('num predictions', len(predictions_path))
 
     batch_size = min(max_batch_size, len(predictions_path))
@@ -342,8 +327,9 @@ def produce_vector_buildings(output_dir, raster_predictions_path, config, max_ba
             batch_prediction_paths = predictions_path[i *
                                                       batch_size:i*batch_size+batch_size]
 
+        crs = get_defined_crs_from_config(config)
         all_predicted_buildings_dataset = create_all_predicted_buildings_vectordata(
-            batch_prediction_paths, config)
+            batch_prediction_paths, crs)
         if all_predicted_buildings_dataset:
             save_dataset(all_predicted_buildings_dataset,
                          f'raw_predictions_{str(i)}.json', output_dir, modelname, save_to)
@@ -384,8 +370,7 @@ def get_raw_predictions(predictions_path):
     return raw_prediction_imgs
 
 
-def create_all_predicted_buildings_vectordata(predictions_path, config):
-    crs = get_defined_crs_from_config(config)
+def create_all_predicted_buildings_vectordata(predictions_path, crs):
 
     all_predicted_buildings_dataset = get_all_predicted_buildings_dataset(
         predictions_path, crs)
