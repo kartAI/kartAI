@@ -14,7 +14,7 @@ import env
 import rasterio
 import rasterio.features
 import rasterio.merge
-from keras.utils import tf_utils
+from keras.src.utils import tf_utils
 
 from rasterstats import zonal_stats
 from kartai.datamodels_and_services.ImageSourceServices import Tile

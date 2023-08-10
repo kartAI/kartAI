@@ -51,7 +51,7 @@ def predict_and_evaluate(created_datasets_path, datagenerator_config, checkpoint
 
     batch_size = 2  # 6
     model.compile(optimizer=opt, loss='binary_crossentropy',
-                  metrics=[keras.metrics.BinaryAccuracy(), IoU, IoU_fz, Iou_point_5, Iou_point_6, Iou_point_7, Iou_point_8, Iou_point_9, Confidence()])
+                  metrics=[keras.metrics.BinaryAccuracy(), IoU, IoU_fz, Iou_point_5, Iou_point_6, Iou_point_7, Iou_point_8, Iou_point_9, Confidence()], run_eagerly=True)
 
     # Evaluate model on test data
     results = model.evaluate(input_images, input_labels,
@@ -82,14 +82,16 @@ def predict_and_evaluate(created_datasets_path, datagenerator_config, checkpoint
 def _save_outputs(output_dir, predictions, input_paths, input_labels, projection, save_prediction_images=True, save_diff_images=True):
 
     if save_prediction_images:
-        file_list = save_predicted_images_as_geotiff(predictions, input_paths,
+        file_list, _ = save_predicted_images_as_geotiff(predictions, input_paths,
                                                      output_dir, "_val_predict.tif", projection)
+
         gdal.BuildVRT(os.path.join(output_dir,
                       "val_predict.vrt"), file_list, addAlpha=True)
 
     if save_diff_images:
-        file_list = save_predicted_images_as_geotiff(predictions - input_labels,
+        file_list, _ = save_predicted_images_as_geotiff(predictions - input_labels,
                                                      input_paths, output_dir, "_val_diff.tif", projection)
+
         gdal.BuildVRT(os.path.join(output_dir,
                       "val_diff.vrt"), file_list, addAlpha=True)
 
@@ -103,8 +105,8 @@ def save_predicted_images_as_geotiff(np_predictions, data_samples, output_dir, p
     file_list = []
     for i in range(len(np_predictions)):
         input_img_name = Path(data_samples[i]['image'].file_path).stem
-        prediction_output_dir = input_img_name + suffix + \
-            ".tif" if suffix else input_img_name + "_prediction.tif"
+
+        prediction_output_dir = input_img_name + ".tif" if suffix else input_img_name + "_prediction.tif"
         prediction_output_dir = os.path.join(output_dir, prediction_output_dir)
         file_list.append(os.path.abspath(prediction_output_dir))
         ds = gdal.GetDriverByName('GTiff').Create(prediction_output_dir,
@@ -117,6 +119,7 @@ def save_predicted_images_as_geotiff(np_predictions, data_samples, output_dir, p
         ds.SetProjection(projection)
         ds.GetRasterBand(1).WriteArray(np_predictions[i, :, :, 0])
         ds = None
+
     return file_list, projection
 
 

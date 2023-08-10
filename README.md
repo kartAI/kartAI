@@ -42,13 +42,13 @@ In order to create the training data for building segmentation you need access t
 
 ### Conda environment
 
-To make sure you have correct versions of all packages we recommend using anaconda.
+To make sure you have correct versions of all packages we recommend using anaconda and their virtual environments. We use python 3.9.
 
-Create a conda environment with python 3.9 by running command below. Replace "env-name" with desired name for the environment
+This repo has an `env.yml` file to create the environment from (NB! This does not include `pandasgui`).
 
-`conda create -n "env-name" python=3.9`
+Run `conda env create -f env.yml` in order to install using the env file (remember to use python 3.9), and `conda activate kartai` to activate the environment.
 
-`conda activate "env-name"`
+Alternatively if you want to install all dependencies manually you can run `conda create -n env-name python=3.9` and then install dependencies as you want.
 
 ### Running scripts
 
@@ -242,7 +242,6 @@ If you instead want the skip this lazy loading, and download the data immediatel
 
 ### Create Training Data Script
 
-
 `create_training_data`
 
 Arguments:
@@ -346,7 +345,7 @@ Example:
 
 Single dataset:
 
-`./kai train -dn {dataset_name} -cn {checkpoint_name} -c{config/ml_input_generator/ortofoto.json} -m {model_name} -a {activation} -bs 4 -f 16 -e {epochs}`
+`./kai train -dn {dataset_name} -cn {checkpoint_name} -c {config/ml_input_generator/ortofoto.json} -m {model_name} -a {activation} -bs 4 -f 16 -e {epochs}`
 
 Several datasets:
 
@@ -370,16 +369,15 @@ In order to test lots of models and hyperparameters we can run the compare_model
 
 Unix:
 
-`./kai compare_models -dn {dataset_name}`
+`./kai compare_models`
 
 Windows:
 
-`kai.bat compare_models -dn {dataset_name}`
+`kai.bat compare_models`
 
 ## Evaluating the models
 
 We have created an automatic process for generating a result table that gives an overview of all the trained models performance.
-
 
 ### IoU result table
 
@@ -387,7 +385,6 @@ Get a complete view of performance of the different models.
 The script opens a GUI table to view results, as well as creating an excel file.
 
 By adding the parameter `-ksand True` you will instead get a full list of how each model is performing on the given test area for the project.
-
 
 Arguments:
 
@@ -403,7 +400,6 @@ Unix:
 Windows:
 
 `kai.bat results`
-
 
 ## Using the trained models
 
@@ -438,6 +434,7 @@ Create a vector dataset with predicted data from a chosen ML model, on a chosen 
 Running creation of vectordata will download to wanted model from azure, before running prediction.
 
 This module will:
+
 - Create a dataset for the given region. Dataset is written to `training_data/created_datasets/for_prediction/{region_name}.json`
 - The chosen ML model (given with the -cn argument) will be used to run predicitons on each of the images in the created dataset, and save the resulting grey-scale rasters to `results/{region_name}/{checkpoint_name}/rasters`
 - Finally gdal_polygonize is used to create vector geojson layers for batches of data. These layers area written to `results/{region_name}/{checkpoint_name}/vectors`
@@ -469,6 +466,7 @@ Windows:
 
 Create a contour vector dataset with predicted data from a chosen ML model, on a chosen region.
 This module will:
+
 - Create a dataset for the given region. Dataset is written to `training_data/created_datasets/for_prediction/{region_name}.json`
 - The chosen ML model (given with the -cn argument) will be used to run predicitons on each of the images in the created dataset, and save the resulting grey-scale rasters to `results/{region_name}/{checkpoint_name}/rasters`
 - Finally gdal_countour is used to create a contour geojson layer for the entire region (using a virtual raster layer produced in previous step). This layer is written to `results/{region_name}/{checkpoint_name}/contour`
