@@ -12,6 +12,7 @@ import env
 from pandasgui import show
 from kartai.dataset.create_building_dataset import get_all_predicted_buildings_dataset, get_fkb_labels, run_ml_predictions
 from kartai.dataset.performance_count import get_new_buildings_fasit, get_performance_count_for_detected_buildings, get_true_labels
+from kartai.dataset.resultRegion import ResultRegion
 from kartai.dataset.test_area_utils import get_test_region_avgrensning_dir
 from kartai.tools.create_training_data import create_training_data
 from kartai.dataset.Iou_calculations import get_iou_for_region
@@ -25,7 +26,7 @@ def add_parser(subparser):
         help="show results table",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument('-test_region', type=str, choices=["ksand", "balsfjord"],
+    parser.add_argument('-test_region', type=str, choices=[ResultRegion.KRISTIANSAND, ResultRegion.BALSFJORD],
                         help='A test region to run prediction on', required=False)
     parser.add_argument('-preview', type=bool,
                         help='preview results so far', required=False, default=False)
@@ -221,12 +222,14 @@ def run_performance_tests(models, crs, region, region_name, config_path):
 
 def create_performance_validaton_dataset(dataset_name, config_path):
     """Creating dataset for the region to make resulttable for"""
-    if dataset_name == "ksand":
+    if ResultRegion.KRISTIANSAND == ResultRegion.from_str(dataset_name):
         create_training_data(dataset_name,
                              config_path, eager_load=True, x_min=437300, x_max=445700, y_min=6442000, y_max=6447400)
-    else:
+    elif ResultRegion.BALSFJORD == ResultRegion.from_str(dataset_name):
         create_training_data(dataset_name,
                              config_path, eager_load=True, region="training_data/regions/balsfjord_test_area.geojson")
+    else:
+        raise NotImplementedError("Unsupported region")
 
 
 def has_run_performance_check(model_name, region_name):

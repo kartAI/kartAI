@@ -16,6 +16,7 @@ import rasterio.features
 import rasterio.merge
 from rasterstats import zonal_stats
 from kartai.datamodels_and_services.ImageSourceServices import Tile
+from kartai.dataset.resultRegion import ResultRegion
 from kartai.utils.confidence import Confidence
 from kartai.utils.crs_utils import get_defined_crs_from_config
 from kartai.tools.predict import save_predicted_images_as_geotiff
@@ -520,7 +521,7 @@ def get_valid_geoms(geoms):
 def get_label_source_name(config, region_name=None, is_performance_test=False):
 
     labelSourceName = None
-    if is_performance_test and region_name == "ksand":
+    if is_performance_test and ResultRegion.KRISTIANSAND == ResultRegion.from_str(region_name):
         labelSourceName = "Bygg_ksand_manuell_prosjekt"
     else:
         for source in config["ImageSources"]:
