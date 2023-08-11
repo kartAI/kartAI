@@ -297,6 +297,7 @@ def add_parser(subparser):
 
 def main(args):
     print("eager load", args.eager_load)
+    print(args)
     create_training_data(args.training_dataset_name, args.config_file, eager_load=args.eager_load, region=args.region,
                          x_min=args.x_min, x_max=args.x_max, y_min=args.y_min, y_max=args.y_max,
                          num_processes=args.num_load_processes)
