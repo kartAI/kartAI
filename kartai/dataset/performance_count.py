@@ -97,8 +97,7 @@ def get_true_labels(region_name, region, crs):
         region_name, crs)
 
     # Add a unique ID to all rows in the dataset
-    true_labels_dataset['label_id'] = range(len(true_labels_dataset))
-    true_labels_dataset.set_index("label_id")
+    true_labels_dataset['label_id'] = true_labels_dataset.index
     if true_labels_dataset.geometry.area.hasnans:
         print("Some columns are missing area value - add them before using the adjusted dataset. Run a dissolve in qgis!")
 
