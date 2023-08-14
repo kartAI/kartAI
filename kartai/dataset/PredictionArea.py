@@ -1,17 +1,12 @@
 import json
-import os
-
 import env
-from kartai.datamodels_and_services.DatasetBuilder import DatasetBuilder
 from kartai.tools.create_training_data import (DatasetBuilder, Region,
                                                getImageSets, getTileGrid, getImageSources)
 from kartai.datamodels_and_services.ImageSourceServices import Tile
 
 
-def fetch_data_to_predict(geom, config_path, output_path, num_processes=None):
-    with open(config_path) as f:
-        config = json.load(f)
-
+def fetch_data_to_predict(geom, config, output_path, num_processes=None):
+    """Download data to run prediction on"""
     tile_grid = getTileGrid(config)
     training_dataset_dir = env.get_env_variable("cached_data_directory")
 

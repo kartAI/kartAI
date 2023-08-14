@@ -1,15 +1,17 @@
-from kartai.datamodels_and_services.Region import Region
 from osgeo import ogr
 import os
 
 
-def parse_region_arg(region):
+def parse_region_arg(region, format="OGRLayer"):
     reg = None
     if region is not None:
         geom_txt = region
         if os.path.isfile(region):
             with open(region, "r") as rf:
                 geom_txt = rf.read()
+
+                if format == "text":
+                    return geom_txt
 
         try:
             reg = ogr.CreateGeometryFromJson(geom_txt)

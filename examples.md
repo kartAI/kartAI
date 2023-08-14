@@ -188,25 +188,11 @@ With ksand as validation area:
 
 ./kai data_teacher -n resnet_mish_sorlandet -cn resnet_large_building_area_d4_mish -v_dn kristiansand_manually_adjusted -t_dn large_building_area --region training_data/regions/auto_expand_region.json -a mish -d 4 -bs 8 -f 16 -m resnet
 
-### Full analysis
-
-Beistet:
-./kai full_analysis -n resnet_kystlinje_sornorge -m resnet --region_expand training_data/regions/sorlandet_auto_expand_region.json --region_validation training_data/regions/validation_region.json --region_init training_data/regions/auto_expand_training_region.json -a mish -d 4 -bs 6 -f 16
-
-./kai full_analysis -n full_analysis_unet_v1 -m unet --region_expand training_data/regions/sorlandet_auto_expand_region.json --region_validation training_data/regions/validation_region.json --region_init training_data/regions/auto_expand_training_region.json -a swish -d 4 -bs 6 -f 16
-
-Mathilde lokalt:
-./kai full_analysis -n test_full_analysis -m bottleneck_cross_SPP --region_expand training_data/regions/auto_expand_region.json --region_validation training_data/regions/validation_region.json --region_init training_data/regions/small_building_region.json -a swish -d 4 -bs 6 -f 16
-
-init checkpoint: full_analysis_unet_data_teacher_init
-
 ### Beistet
 
 Existing datasets:
 
 - ksand_with_hoyde
-
-
 
 
 Demo:
