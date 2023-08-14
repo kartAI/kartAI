@@ -2,14 +2,12 @@ import argparse
 import collections
 import datetime
 import json
-import math
 import os
 import random
 import sys
 import uuid
 
-import numpy as np
-from osgeo import gdal, ogr, osr
+from osgeo import gdal, ogr
 
 from env import get_env_variable
 from kartai.datamodels_and_services.Region import Region
@@ -297,7 +295,6 @@ def add_parser(subparser):
 
 def main(args):
     print("eager load", args.eager_load)
-    print(args)
     create_training_data(args.training_dataset_name, args.config_file, eager_load=args.eager_load, region=args.region,
                          x_min=args.x_min, x_max=args.x_max, y_min=args.y_min, y_max=args.y_max,
                          num_processes=args.num_load_processes)
