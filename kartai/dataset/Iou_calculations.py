@@ -1,7 +1,7 @@
 import geopandas as gp
 
 
-def get_iou_for_region(prediction_gdf, true_labels, region, crs):
+def get_iou_for_region(prediction_gdf: gp.GeoDataFrame, true_labels: gp.GeoDataFrame, region, crs: str):
     """Get intersection over union from predictions in a region"""
     aoi_gdf = gp.read_file(region)
     aoi_gdf.set_crs(crs, inplace=True, allow_override=True)

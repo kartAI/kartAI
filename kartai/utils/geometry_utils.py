@@ -2,7 +2,7 @@ from osgeo import ogr
 import os
 
 
-def parse_region_arg(region, format="OGRLayer"):
+def parse_region_arg(region: str, format="OGRLayer") -> ogr.Geometry:
     reg = None
     if region is not None:
         geom_txt = region

@@ -1,8 +1,6 @@
-import glob
 import json
 import os
 import sys
-import time
 from pathlib import Path
 import geopandas as gp
 import pandas as pd
@@ -15,51 +13,21 @@ import rasterio
 import rasterio.features
 import rasterio.merge
 from rasterstats import zonal_stats
+from osgeo import ogr
 from kartai.datamodels_and_services.ImageSourceServices import Tile
 from kartai.dataset.resultRegion import ResultRegion
+from kartai.models.model import Model
 from kartai.utils.confidence import Confidence
 from kartai.utils.crs_utils import get_defined_crs_from_config
 from kartai.tools.predict import save_predicted_images_as_geotiff
 from kartai.utils.dataset_utils import get_X_tuple
 from kartai.utils.geometry_utils import parse_region_arg
 from kartai.utils.prediction_utils import get_raster_predictions_dir
-from kartai.tools.train import getLoss
+from kartai.tools.train import get_loss
 from kartai.metrics.meanIoU import (IoU, IoU_fz, Iou_point_5, Iou_point_6,
                                     Iou_point_7, Iou_point_8, Iou_point_9)
 from sqlalchemy import create_engine
 from kartai.dataset.PredictionArea import fetch_data_to_predict
-
-
-# Used by API
-
-
-def create_predicted_buildings_dataset(geom, checkpoint_name, config, region_name):
-    skip_to_postprocess = False  # For testing
-    projection = "EPSG:25832"
-    if skip_to_postprocess == False:
-        if "segformer" in checkpoint_name:
-            # In order to test a segformer model you have to create the raster predictions in other repo, and then
-            # copy them to the results folder. Checking if that folder exist:
-            raster_output_dir = get_raster_predictions_dir(
-                region_name, checkpoint_name)
-            if not os.path.isdir(raster_output_dir):
-                raise Exception(
-                    f'Raster predictions for model {checkpoint_name} is not defined. Since it is a segformer model, the prediction rasters have to be produced in a different repository, and then copied to the results folder')
-        else:
-            run_ml_predictions(checkpoint_name, region_name, projection=projection,
-                               config=config, geom=geom)
-
-        time.sleep(2)  # Wait for complete saving to disk
-
-    raster_dir = get_raster_predictions_dir(region_name, checkpoint_name)
-    print('Starting postprocess')
-    predictions_path = sorted(
-        glob.glob(raster_dir))
-
-    crs = get_defined_crs_from_config(config)
-    all_predicted_buildings_dataset = get_all_predicted_buildings_dataset(
-        predictions_path, crs)
-    return all_predicted_buildings_dataset
 
 
 def save_dataset(data, filename, output_dir, modelname, save_to):
@@ -80,9 +48,9 @@ def save_dataset_locally(data, filename, output_dir):
     file.close()
 
 
-def run_ml_predictions(input_model_name, region_name, projection, input_model_subfolder=None, dataset_path_to_predict=None, config=None, geom=None,
-                       skip_data_fetching=False, tupple_data=False, download_labels=False, batch_size=8,
-                       save_to='local', num_processes=None):
+def run_ml_predictions(input_model_name: str, region_name: str, projection: str, input_model_subfolder: str = None, dataset_path_to_predict: str = None, config: str = None, geom: ogr.Geometry = None,
+                       skip_data_fetching: bool = False, tupple_data: bool = False, download_labels: bool = False, batch_size: int = 8,
+                       save_to: str = 'local', num_processes: int = None):
     """Running prediction on a dataset containing tiled input data, or a region to created data for """
 
     print("\nRunning ML prediction")
@@ -106,6 +74,7 @@ def run_ml_predictions(input_model_name, region_name, projection, input_model_su
     # Prediction data is without height info, therefor crashes
 
     with open(dataset_path_to_predict) as f:
+        # list of {image:ImageSourceService, label:ImageSourceService}
         prediction_input_list = Tile.tileset_from_json(json.load(f))
 
     img_dims = get_image_dims(prediction_input_list, tupple_data)
@@ -140,18 +109,18 @@ def run_ml_predictions(input_model_name, region_name, projection, input_model_su
                                          raster_output_dir, projection)
 
 
-def batch_already_produced(input_batch, raster_output_dir):
+def batch_already_produced(input_batch: list[str], raster_output_dir: str):
     """Checks whether a raster prediction for the last image in the batch is already on created"""
     last_in_batch = Path(
         input_batch[-1]['image'].file_path).stem+"_prediction.tif"
     return os.path.exists(os.path.join(raster_output_dir, last_in_batch))
 
 
-def predict(model, images_to_predict):
+def predict(model: keras.Sequential, images_to_predict):
     return model(tf.convert_to_tensor(images_to_predict), training=False).numpy()
 
 
-def get_dataset_to_predict_dir(region_name, suffix=None):
+def get_dataset_to_predict_dir(region_name: str, suffix: str = None):
     dataset_dir = env.get_env_variable('created_datasets_directory')
 
     prediction_dataset_dir = os.path.join(
@@ -166,7 +135,7 @@ def get_dataset_to_predict_dir(region_name, suffix=None):
     return dataset_path_to_predict
 
 
-def prepare_dataset_to_predict(region_name, geom, config, num_processes=None):
+def prepare_dataset_to_predict(region_name: str, geom: ogr.Geometry, config: str, num_processes: int = None):
 
     dataset_path_to_predict = get_dataset_to_predict_dir(region_name)
 
@@ -182,13 +151,13 @@ def prepare_dataset_to_predict(region_name, geom, config, num_processes=None):
             geom, config, dataset_path_to_predict, num_processes=num_processes)
 
 
-def get_ml_model(input_model_name, input_model_subfolder=None):
+def get_ml_model(input_model_name: Model, input_model_subfolder: str = None) -> keras.Sequential:
 
     checkpoint_path = get_checkpoint_path(
         input_model_name, input_model_subfolder)
 
     dependencies = {
-        'BinaryFocalLoss': getLoss('focal_loss'),
+        'BinaryFocalLoss': get_loss('focal_loss'),
         'Iou_point_5': Iou_point_5,
         'Iou_point_6': Iou_point_6,
         'Iou_point_7': Iou_point_7,
@@ -203,7 +172,7 @@ def get_ml_model(input_model_name, input_model_subfolder=None):
     return model
 
 
-def get_checkpoint_path(input_model_name, input_model_subfolder):
+def get_checkpoint_path(input_model_name: str, input_model_subfolder: str):
     """Support fetching checkpoints from three different formats:
       1: .h5 files saved directly to checkpoints folder
       2: New keras checkpoints format saved to a model directory
@@ -240,7 +209,7 @@ def get_checkpoint_path(input_model_name, input_model_subfolder):
         return os.path.join(input_model_path, best_checkpoint_path)
 
 
-def get_iou_from_pathname(path):
+def get_iou_from_pathname(path: str):
     """Get IoU value in path name"""
     if "IoU" not in path:
         raise Exception(
@@ -248,7 +217,7 @@ def get_iou_from_pathname(path):
     return float(path.split("-IoU_")[1])
 
 
-def get_image_dims(prediction_input_list, tupple_data):
+def get_image_dims(prediction_input_list: list[dict], tupple_data: bool):
     if not tupple_data:
         if ("image" in prediction_input_list[0] and "lidar" in prediction_input_list[0]):
             img_dims = [512, 512, 4]
@@ -261,7 +230,8 @@ def get_image_dims(prediction_input_list, tupple_data):
     return img_dims
 
 
-def get_images_to_predict(input_batch, img_dims, download_labels):
+def get_images_to_predict(input_batch: list[dict], img_dims: list[int], download_labels: bool):
+    """Download iamges and optional labels"""
     images_to_predict = np.empty(
         (len(input_batch), img_dims[0], img_dims[1], img_dims[2]))
     for index, sample in enumerate(input_batch, start=0):
@@ -284,7 +254,7 @@ def get_images_to_predict(input_batch, img_dims, download_labels):
     return images_to_predict
 
 
-def get_tuples_to_predict(input_batch):
+def get_tuples_to_predict(input_batch: list):
     input_tuples = []
     tuple1 = {
         "name": "image",
@@ -303,7 +273,7 @@ def get_tuples_to_predict(input_batch):
     return tupples_to_predict
 
 
-def produce_vector_buildings(output_dir, raster_dir, config, max_batch_size, modelname, save_to):
+def produce_vector_buildings(output_dir: str, raster_dir: str, config: dict, max_batch_size: int, modelname: str, save_to: str):
 
     raster_filenames = os.listdir(raster_dir)
     print('output_dir', output_dir)
@@ -363,7 +333,7 @@ def polygonize_mask(mask, img, crs):
     return polygons
 
 
-def get_raw_predictions(predictions_path):
+def get_raw_predictions(predictions_path: list[str]):
     raw_prediction_imgs = []
 
     for i in range(len(predictions_path)):
@@ -373,7 +343,7 @@ def get_raw_predictions(predictions_path):
     return raw_prediction_imgs
 
 
-def create_all_predicted_buildings_vectordata(predictions_path, crs):
+def create_all_predicted_buildings_vectordata(predictions_path: list[str], crs: str):
 
     all_predicted_buildings_dataset = get_all_predicted_buildings_dataset(
         predictions_path, crs)
@@ -389,7 +359,7 @@ def create_all_predicted_buildings_vectordata(predictions_path, crs):
     return all_predicted_buildings_dataset.to_json()
 
 
-def add_confidence_values(dataset, predictions_path):
+def add_confidence_values(dataset: gp.geodataframe, predictions_path: list[str]):
     """Adding confidence values from prediction to the vector data"""
     raw_prediction_imgs = get_raw_predictions(predictions_path)
     full_img, full_transform = rasterio.merge.merge(raw_prediction_imgs)
@@ -402,7 +372,7 @@ def add_confidence_values(dataset, predictions_path):
     return dataset
 
 
-def simplify_dataset(dataset):
+def simplify_dataset(dataset: gp.geodataframe):
     """Simplify the data by removing small areas, and removing points from the polygons by running simplify"""
     # Remove all small buildings in dataset
     dataset = dataset.loc[dataset.geometry.area > 1]
@@ -414,7 +384,7 @@ def simplify_dataset(dataset):
     return dataset
 
 
-def get_fkb_labels(config, region_path, crs):
+def get_fkb_labels(config: dict, region_path: str, crs: str):
     """Get labels from FKB data"""
     layer_spec = None
     for source_config in config["ImageSources"]:
@@ -453,7 +423,7 @@ def get_fkb_labels(config, region_path, crs):
     return df
 
 
-def get_all_predicted_buildings_dataset(predictions_path, crs, region_dir=None):
+def get_all_predicted_buildings_dataset(predictions_path: list[str], crs: str, region_dir: str = None):
     """Create a vector dataset of the prediction raster tiles"""
 
     print("\nCreating vectordata from prediction tiles")
@@ -492,7 +462,7 @@ def get_all_predicted_buildings_dataset(predictions_path, crs, region_dir=None):
     return cleaned_dataset
 
 
-def clip_to_polygon(dataset, polygon_file, crs):
+def clip_to_polygon(dataset: gp.GeoDataFrame, polygon_file: str, crs: str):
     """Clip a dataset to a polygon"""
     area_gdf = gp.read_file(polygon_file)
     area_gdf.set_crs(crs, allow_override=True, inplace=True)
@@ -501,7 +471,7 @@ def clip_to_polygon(dataset, polygon_file, crs):
     return dataset
 
 
-def merge_connected_geoms(geoms):
+def merge_connected_geoms(geoms: gp.geodataframe):
     try:
         dissolved_geoms = geoms.dissolve()
         dissolved_geoms = dissolved_geoms.explode().reset_index(drop=True)
@@ -511,14 +481,14 @@ def merge_connected_geoms(geoms):
         return geoms
 
 
-def get_valid_geoms(geoms):
+def get_valid_geoms(geoms: gp.geodataframe):
     # Hack to clean up geoms
     if geoms.empty:
         return geoms
     return geoms.geometry.buffer(0)
 
 
-def get_label_source_name(config, region_name=None, is_performance_test=False):
+def get_label_source_name(config: dict, region_name: str = None, is_performance_test: bool = False):
 
     labelSourceName = None
     if is_performance_test and ResultRegion.KRISTIANSAND == ResultRegion.from_str(region_name):

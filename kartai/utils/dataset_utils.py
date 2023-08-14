@@ -7,6 +7,7 @@ from PIL import Image
 
 from env import get_env_variable
 from kartai.datamodels_and_services.Region import Region
+from kartai.models.model import Model
 from kartai.utils.geometry_utils import parse_region_arg
 
 
@@ -31,7 +32,7 @@ def get_X_tuple(batch_size, datapaths_for_batch, tuple_input):
 
             if data_instance:
                 data_instance_array = np.array(data_instance)
-                if(len(data_instance_array.shape) == 2):
+                if (len(data_instance_array.shape) == 2):
                     data_instance_array = np.expand_dims(
                         data_instance_array, 2)
                 X_batch[i, ] = data_instance_array
@@ -53,7 +54,7 @@ def get_X_stack(batch_size, datapaths_for_batch, input_stack):
         channels = dimensions[2]
         stack_channels += channels
 
-        if(first_dim != dimensions[0] or second_dim != dimensions[1]):
+        if (first_dim != dimensions[0] or second_dim != dimensions[1]):
             print(
                 '\n---ERROR: You cannot create an input stack of images with different first and second dimension')
             sys.exit()
@@ -78,7 +79,7 @@ def get_X_stack(batch_size, datapaths_for_batch, input_stack):
             if data_instance is not None:
                 data_instance_array = data_instance.transpose(
                     (1, 2, 0))  # np.array(data_instance)
-                if(len(data_instance_array.shape) == 2):
+                if (len(data_instance_array.shape) == 2):
                     data_instance_array = np.expand_dims(
                         data_instance_array, 2)
 
@@ -116,18 +117,18 @@ def get_ground_truth(batch_size, tileset_for_batch, ground_truth):
     return Y_batch
 
 
-def validate_model_data_input(datagenerator_config, model_name, segmentation_models):
+def validate_model_data_input(datagenerator_config: dict, model_name: Model):
     input_stack = datagenerator_config["model_input_stack"]
     input_tuple = datagenerator_config["model_input_tuple"]
 
-    if(len(input_tuple) > 2):
+    if (len(input_tuple) > 2):
         print('\n---ERROR: no models support more than two inputs')
         sys.exit()
-    elif((len(input_tuple) > 0) & (model_name not in segmentation_models.models_supporting_tupple_input)):
+    elif ((len(input_tuple) > 0) and model_name.has_tuple_input):
         print(f'\n---ERROR: {model_name} does not support tuple input')
         sys.exit()
 
-    elif((len(input_stack) > 1) & (model_name not in segmentation_models.models_supporting_stacked_input)):
+    elif ((len(input_stack) > 1) and model_name.has_stacked_input):
         print(
             f'\n---ERROR: {model_name} expects tuple input, not stacked input')
         sys.exit()
@@ -135,7 +136,7 @@ def validate_model_data_input(datagenerator_config, model_name, segmentation_mod
 
 def check_for_existing_dataset(training_dataset_name):
 
-    if('test_data_teacher' in training_dataset_name):
+    if ('test_data_teacher' in training_dataset_name):
         return
 
     created_dataset_dir = get_env_variable("created_datasets_directory")
