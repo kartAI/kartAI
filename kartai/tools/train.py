@@ -92,9 +92,6 @@ def train_model(created_datasets_dirs: list[str], input_generator_config: dict, 
     reduceLR_loss_cb = keras.callbacks.ReduceLROnPlateau(
         monitor="val_IoU", factor=0.2, patience=6, verbose=0, min_delta=0)
 
-    if (epochs == None):
-        epochs = 100  # Max number of epochs
-
     callbacks = [
         checkpoint_iou_cb,
         reduceLR_loss_cb,
