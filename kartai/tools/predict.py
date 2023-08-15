@@ -42,7 +42,6 @@ def predict_and_evaluate(created_datasets_path: str, datagenerator_config: str, 
 
     opt = get_optimizer("RMSprop", False)
 
-    batch_size = 6  # TODO: add as argument
     model.compile(optimizer=opt, loss='binary_crossentropy',
                   metrics=[keras.metrics.BinaryAccuracy(), IoU, IoU_fz, Iou_point_5, Iou_point_6, Iou_point_7, Iou_point_8, Iou_point_9, Confidence()])
 
