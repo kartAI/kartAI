@@ -14,6 +14,7 @@ from kartai.dataset.create_building_dataset import get_all_predicted_buildings_d
 from kartai.dataset.performance_count import get_new_buildings_fasit, get_performance_count_for_detected_buildings, get_true_labels
 from kartai.dataset.resultRegion import ResultRegion
 from kartai.dataset.test_area_utils import get_test_region_avgrensning_dir
+from kartai.models.model import Model
 from kartai.tools.create_training_data import create_training_data
 from kartai.dataset.Iou_calculations import get_iou_for_region
 from kartai.utils.prediction_utils import get_raster_predictions_dir
@@ -36,7 +37,7 @@ def add_parser(subparser):
     parser.set_defaults(func=main)
 
 
-def download_all_performance_meta_files(region_name):
+def download_all_performance_meta_files(region_name: ResultRegion):
     # Start by downloading all models if not already downloaded
     output_directory = get_performance_output_dir(region_name)
     if not os.path.exists(output_directory):
@@ -58,7 +59,7 @@ def download_all_models():
     return models
 
 
-def create_dataframe_result(models, region_name):
+def create_dataframe_result(models: list[Model], region_name: ResultRegion):
     rows = []
     for model in models:
         model_name = Path(model).stem
@@ -129,7 +130,7 @@ def show_general_model_performance(models):
                 'report_trained_models.xlsx'), index=False)
 
 
-def get_dataset_name_and_path(model_name, dataset_name):
+def get_dataset_name_and_path(model_name: str, dataset_name: str):
     # TODO: add better check in order to find if model is height model and stack/twin model
     tupple_data = False
     if ('ndh' in model_name or 'twin' in model_name):
@@ -145,7 +146,7 @@ def get_dataset_name_and_path(model_name, dataset_name):
     return area_dataset_name, area_dataset_path, tupple_data
 
 
-def run_performance_tests(models, crs, region, region_name, config_path):
+def run_performance_tests(models: list[Model], crs: str, region: str, region_name: ResultRegion, config_path: str):
     # Create performance-metadata file for each performance test
 
     output_predictions_name = "_prediction.tif"
@@ -154,7 +155,7 @@ def run_performance_tests(models, crs, region, region_name, config_path):
     crs = get_defined_crs_from_config_path(config_path)
 
     with open(config_path, "r") as config_file:
-        config = json.load(config_file)
+        config: dict = json.load(config_file)
 
     true_labels = get_true_labels(
         region_name, region, crs)
@@ -203,7 +204,7 @@ def run_performance_tests(models, crs, region, region_name, config_path):
         performance_output_dir = get_performance_output_dir(region_name)
 
         false_count, true_count, true_new_buildings_count, all_missing_count = get_performance_count_for_detected_buildings(
-            prediction_dataset_gdf, predictions_path, true_labels, new_buildings_fasit, crs, model_name, performance_output_dir, region_name)
+            prediction_dataset_gdf, predictions_path, true_labels, new_buildings_fasit, model_name, performance_output_dir)
 
         iou = get_iou_for_region(
             prediction_dataset_gdf, true_labels, region, crs)
@@ -220,7 +221,7 @@ def run_performance_tests(models, crs, region, region_name, config_path):
     create_dataframe_result(models, region_name)
 
 
-def create_performance_validaton_dataset(dataset_name, config_path):
+def create_performance_validaton_dataset(dataset_name: str, config_path: str):
     """Creating dataset for the region to make resulttable for"""
     if ResultRegion.KRISTIANSAND == ResultRegion.from_str(dataset_name):
         create_training_data(dataset_name,
@@ -232,13 +233,13 @@ def create_performance_validaton_dataset(dataset_name, config_path):
         raise NotImplementedError("Unsupported region")
 
 
-def has_run_performance_check(model_name, region_name):
+def has_run_performance_check(model_name: str, region_name: str):
     """Checks wether there already exists a peformance file for the given model in the given region"""
     meta_path = get_performance_meta_path(model_name, region_name)
     return os.path.isfile(meta_path)
 
 
-def get_performance_output_dir(name):
+def get_performance_output_dir(name: str):
     """Directory for where performance files should be saved"""
     return os.path.join(env.get_env_variable(
         'prediction_results_directory'), name+"_performance")
@@ -250,7 +251,7 @@ def get_predictions_output_dir():
         'prediction_results_directory'), 'prediction_for_performance_test')
 
 
-def get_performance_meta_path(model_name, region_name):
+def get_performance_meta_path(model_name: str, region_name: str):
     """Directory for where performance meta file should be saved"""
     out_folder = get_performance_output_dir(region_name)
     file_name = model_name + f'_{region_name}_performance.json'
@@ -258,7 +259,7 @@ def get_performance_meta_path(model_name, region_name):
     return path
 
 
-def get_checkpoint_meta_file_dir(model_name):
+def get_checkpoint_meta_file_dir(model_name: Model):
     checkpoints_directory = env.get_env_variable('trained_models_directory')
 
     # Support checkpoints from old and new format
@@ -274,7 +275,7 @@ def get_checkpoint_meta_file_dir(model_name):
         raise Exception("Cannot find meta file for model:", model_name)
 
 
-def create_performance_metadata_file(region_name, IoU, model_name, false_count, true_buildings_count, true_new_buildings_count, all_missing_count):
+def create_performance_metadata_file(region_name: ResultRegion, IoU: float, model_name: str, false_count: int, true_buildings_count: int, true_new_buildings_count: int, all_missing_count: int):
 
     out_folder = get_performance_output_dir(region_name)
 
@@ -311,7 +312,7 @@ def create_performance_metadata_file(region_name, IoU, model_name, false_count, 
     print("created metadata-file:\n", json.dumps(meta,  indent=ident))
 
 
-def get_training_iou_results(training_metadata_file):
+def get_training_iou_results(training_metadata_file: object):
     """Get IoU metric from the metadata file from a trained model"""
     training_results = -1
     if ("training_results" in training_metadata_file):
@@ -332,7 +333,7 @@ def get_training_iou_results(training_metadata_file):
                 raise NotImplementedError("Unknown metric")
 
 
-def empty_folder(folder):
+def empty_folder(folder: str):
     if (not os.path.exists(folder)):
         return
     for filename in os.listdir(folder):

@@ -1,10 +1,12 @@
 import os
 import geopandas as gp
+import pandas
 from kartai.dataset.create_building_dataset import add_confidence_values, clip_to_polygon, get_valid_geoms
+from kartai.dataset.resultRegion import ResultRegion
 from kartai.dataset.test_area_utils import get_adjusted_labels_dirs
 
 
-def get_performance_count_for_detected_buildings(all_predicted_buildings, predictions_path, true_labels, new_buildings_fasit, crs, model_name, performance_output_dir, region_name):
+def get_performance_count_for_detected_buildings(all_predicted_buildings: gp.GeoDataFrame, predictions_path: str, true_labels: gp.GeoDataFrame, new_buildings_fasit: gp.GeoDataFrame, model_name: str, performance_output_dir: str):
     """Create datasets for the different category of predictions. True, false and missing"""
 
     print("\nCreating correctly detected buildings")
@@ -38,14 +40,14 @@ def get_performance_count_for_detected_buildings(all_predicted_buildings, predic
     return get_dataset_count(wrongly_detected_buildings), get_dataset_count(correctly_detected_buildings),  get_dataset_count(correctly_detected_new_buildings), get_dataset_count(missing_frittliggende_buildings)
 
 
-def get_dataset_count(dataset):
+def get_dataset_count(dataset: gp.GeoDataFrame or pandas.DataFrame):
     if dataset.empty:
         return 0
     else:
         return len(dataset)
 
 
-def save_dataset(dataset, performance_output_dir, file_name):
+def save_dataset(dataset: gp.GeoDataFrame, performance_output_dir: str, file_name: str):
     os.makedirs(performance_output_dir, exist_ok=True)
     if dataset.empty:
         dataset = []
@@ -54,7 +56,7 @@ def save_dataset(dataset, performance_output_dir, file_name):
             os.path.join(performance_output_dir, file_name+'.shp'))
 
 
-def get_all_missing_frittliggende_buildings(true_labels, all_predicted_buildings_dataset):
+def get_all_missing_frittliggende_buildings(true_labels: gp.GeoDataFrame, all_predicted_buildings_dataset: gp.GeoDataFrame):
     """Get all existing buildings that was not detected"""
 
     missing_frittliggende_buildings = true_labels.loc[~true_labels.intersects(
@@ -63,7 +65,7 @@ def get_all_missing_frittliggende_buildings(true_labels, all_predicted_buildings
     return missing_frittliggende_buildings
 
 
-def get_wrongly_detected_buildings(all_predictions, true_labels_dataset, predictions_path):
+def get_wrongly_detected_buildings(all_predictions: gp.GeoDataFrame, true_labels_dataset: gp.GeoDataFrame, predictions_path: str):
     """Get detected buildings that does not intersect with an existing building in the manually created label dataset"""
 
     # Find all buildings that intersect with an existing building
@@ -76,7 +78,7 @@ def get_wrongly_detected_buildings(all_predictions, true_labels_dataset, predict
     return false_detected_buildings
 
 
-def get_correctly_detected_new_buildings(new_buildings_fasit, true_predicted_buildings, predictions_path):
+def get_correctly_detected_new_buildings(new_buildings_fasit: gp.GeoDataFrame, true_predicted_buildings: gp.GeoDataFrame, predictions_path: str):
     """Get buildings that are correctly identified, but that are not in FKB"""
 
     # Find detected buildings that overlap actual new buildings
@@ -92,7 +94,7 @@ def get_correctly_detected_new_buildings(new_buildings_fasit, true_predicted_bui
     return true_new_buildings
 
 
-def get_true_labels(region_name, region, crs):
+def get_true_labels(region_name: ResultRegion, region: str, crs: str):
     true_labels_dataset = get_adjusted_labels(
         region_name, crs)
 
@@ -107,7 +109,7 @@ def get_true_labels(region_name, region, crs):
     return true_labels_dataset
 
 
-def get_adjusted_labels(region_name, crs):
+def get_adjusted_labels(region_name: ResultRegion, crs: str):
     """ Path to manually adjusted labels where every building is correctly annotated """
     adjusted_label_dirs = get_adjusted_labels_dirs(region_name)
     adjusted_labels_gdf = get_geo_data_frame(adjusted_label_dirs, crs)
@@ -115,7 +117,7 @@ def get_adjusted_labels(region_name, crs):
     return adjusted_labels_gdf
 
 
-def get_geo_data_frame(file_dirs, crs, driver="shapefile"):
+def get_geo_data_frame(file_dirs: list[str], crs: str, driver="shapefile") -> gp.GeoDataFrame:
     gdf = gp.GeoDataFrame()
 
     for file in file_dirs:
@@ -126,7 +128,7 @@ def get_geo_data_frame(file_dirs, crs, driver="shapefile"):
     return gdf
 
 
-def get_correctly_detected_buildings(true_labels, all_predicted_buildings_dataset):
+def get_correctly_detected_buildings(true_labels: gp.GeoDataFrame, all_predicted_buildings_dataset: gp.GeoDataFrame) -> gp.GeoDataFrame:
     """Get all predictions that are actual buildings, according to the adjusted manually created label dataset"""
 
     # Find all buildings that intersect with an existing building
@@ -142,7 +144,7 @@ def get_correctly_detected_buildings(true_labels, all_predicted_buildings_datase
     return true_predictions
 
 
-def get_new_buildings_fasit(true_labels, fkb_labels):
+def get_new_buildings_fasit(true_labels: gp.GeoDataFrame, fkb_labels: gp.GeoDataFrame):
     """Get all buildings in manually adjusted labels dataset, that is not in FKB data"""
     true_new_frittliggende_buildings = true_labels.loc[~true_labels.intersects(
         fkb_labels.unary_union)]

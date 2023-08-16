@@ -3,7 +3,7 @@ import env
 from kartai.dataset.resultRegion import ResultRegion
 
 
-def get_test_region_avgrensning_dir(region_name):
+def get_test_region_avgrensning_dir(region_name: ResultRegion):
     cached_data_dir = env.get_env_variable('cached_data_directory')
     if ResultRegion.from_str(region_name) == ResultRegion.KRISTIANSAND:
         return os.path.join(cached_data_dir, "AP2_T2_geodata/Prosjektområde/shape/avgrensning.shp")

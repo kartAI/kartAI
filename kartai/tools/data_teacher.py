@@ -10,6 +10,7 @@ from azure import blobstorage
 import env
 from kartai.exceptions import CheckpointNotFoundException, InvalidCheckpointException
 from kartai.models import segmentation_models
+from kartai.models.model import Model
 from kartai.tools.create_training_data import create_training_data
 from kartai.tools.predict import predict_and_evaluate
 from kartai.tools.train import create_metadata_file, train_model
@@ -83,7 +84,7 @@ def add_parser(subparser):
                              "WKT, json text or filename\n",
                         required=True)
     parser.add_argument('-m', '--model', type=str, help='The wanted neural net model to use for evaluation of dataset',
-                        choices=segmentation_models.models, required=True)
+                        choices=Model.get_values(), required=True)
     parser.add_argument('-bs', '--batch_size', type=int,
                         help='Size of minibatch', default=8)
     parser.add_argument('-f', '--features', type=int,
@@ -144,7 +145,7 @@ def test_model_performance(new_checkpoint_name, prev_evaluation_model_checkpoint
 
 def is_model_improving(model_evaluations: list):
     min_iterations = 5
-    if(len(model_evaluations) < min_iterations):
+    if (len(model_evaluations) < min_iterations):
         return True
     else:
         best_model_index = model_evaluations.index(max(model_evaluations))
@@ -169,7 +170,7 @@ def run_data_teacher(data_teacher_name: str, validation_dataset_name: str, train
     with open(input_generator_config_path, encoding="utf8") as datagen_config:
         input_generator_config = json.load(datagen_config)
 
-    if(init_checkpoint):
+    if (init_checkpoint):
         evaluation_model_checkpoint = init_checkpoint
     else:
         # Start by training a model on the init training dataset
@@ -211,13 +212,13 @@ def run_data_teacher(data_teacher_name: str, validation_dataset_name: str, train
         model_is_improving = is_model_improving(model_evaluations)
 
         # Include examples with higher confidence as dataset/model improves
-        if(confidence_threshold < 0.96):
+        if (confidence_threshold < 0.96):
             confidence_threshold += 0.04
 
         print("Full list of evaluated models: ", model_evaluations)
         print("models names", models_tested)
 
-        if(model_is_improving == False or iteration == max_iterations):
+        if (model_is_improving == False or iteration == max_iterations):
             model_is_improving = False  # To break out of while loop when max iterations reached
             best_model_index = model_evaluations.index(max(model_evaluations))
             best_model_name = models_tested[best_model_index]
