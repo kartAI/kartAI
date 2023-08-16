@@ -3,9 +3,10 @@ import env
 from kartai.tools.create_training_data import (DatasetBuilder, Region,
                                                getImageSets, getTileGrid, getImageSources)
 from kartai.datamodels_and_services.ImageSourceServices import Tile
+from osgeo import ogr
 
 
-def fetch_data_to_predict(geom, config, output_path, num_processes=None):
+def fetch_data_to_predict(geom: ogr.Geometry, config, output_path, num_processes=None):
     """Download data to run prediction on"""
     tile_grid = getTileGrid(config)
     training_dataset_dir = env.get_env_variable("cached_data_directory")

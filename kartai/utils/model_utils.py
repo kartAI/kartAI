@@ -4,7 +4,7 @@ from kartai.utils.confidence import Confidence
 from kartai.utils.dataset_utils import get_ground_truth, get_X_stack, get_X_tuple
 from kartai.metrics.meanIoU import (IoU, IoU_fz, Iou_point_5, Iou_point_6,
                                     Iou_point_7, Iou_point_8, Iou_point_9)
-from kartai.tools.train import getLoss
+from kartai.tools.train import get_loss
 import numpy as np
 import env
 
@@ -37,9 +37,9 @@ def evaluate_image(image_path, label_path, datagenerator_config, checkpoint_to_p
     return results
 
 
-def model_is_confident(data_generator_config, ortofoto_path, lidar_path, label_path, eval_model_checkpoint, confidence_threshold):
+def model_is_confident(data_generator_config, ortofoto_path: str, lidar_path: str, label_path: str, eval_model_checkpoint, confidence_threshold: float):
 
-    if(confidence_threshold == None):
+    if (confidence_threshold == None):
         raise Exception("Missing threshold for confidence")
 
     prediction = predict_image(
@@ -50,12 +50,12 @@ def model_is_confident(data_generator_config, ortofoto_path, lidar_path, label_p
     return confidence > confidence_threshold
 
 
-def load_checkpoint_model(checkpoint_name):
+def load_checkpoint_model(checkpoint_name: str) -> keras.Sequential:
     checkpoint_path = env.get_env_variable(
         'trained_models_directory')
     model_fn = os.path.join(checkpoint_path, checkpoint_name + '.h5')
     dependencies = {
-        'BinaryFocalLoss': getLoss('focal_loss'),
+        'BinaryFocalLoss': get_loss('focal_loss'),
         'Iou_point_5': Iou_point_5,
         'Iou_point_6': Iou_point_6,
         'Iou_point_7': Iou_point_7,
@@ -81,7 +81,7 @@ def checkpoint_exist(checkpoint_name):
 # Input paths are a list of objects with fields {"image": "..", "label": "..", "lidar"}
 
 
-def _get_input_images(input_paths, datagenerator_config):
+def _get_input_images(input_paths: list[dict], datagenerator_config: dict):
     batch_size = len(input_paths)
     has_tuple_input = len(datagenerator_config["model_input_tuple"]) > 0
 
