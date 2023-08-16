@@ -17,9 +17,9 @@ from osgeo import ogr
 from kartai.datamodels_and_services.ImageSourceServices import Tile
 from kartai.dataset.resultRegion import ResultRegion
 from kartai.models.model import Model
+from kartai.tools.predict import save_predicted_images_as_geotiff
 from kartai.utils.confidence import Confidence
 from kartai.utils.crs_utils import get_defined_crs_from_config
-from kartai.tools.predict import save_predicted_images_as_geotiff
 from kartai.utils.dataset_utils import get_X_tuple
 from kartai.utils.geometry_utils import parse_region_arg
 from kartai.utils.prediction_utils import get_raster_predictions_dir

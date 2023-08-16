@@ -152,41 +152,7 @@ def create_contour_result(raster_path: str, output_dir: str, projection: str, fi
     out_geojson_source = None
 
 
-<<<<<<< HEAD
-    out_geojson_source = out_geojson_driver.CreateDataSource(
-        prediction_output_dir_geojson)
-
-    out_geojson_layer = out_geojson_source.CreateLayer(
-        'geojson_contour', osr.SpatialReference(projection))
-
-    # define fields of id and elev
-    fieldDef = ogr.FieldDefn("ID", ogr.OFTInteger)
-    out_geojson_layer.CreateField(fieldDef)
-    fieldDef = ogr.FieldDefn("elev", ogr.OFTReal)
-    out_geojson_layer.CreateField(fieldDef)
-
-    # fixedLevelCount=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-    fixedLevelCount = [0, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-
-    ''' ContourGenerate(Band srcBand, double contourInterval, double contourBase,int fixedLevelCount, int useNoData, double noDataValue, Layer dstLayer, int idField, int elevField, GDALProgressFunc callback=0, void * callback_data=None) -> int '''
-    gdal.ContourGenerate(srcBand=merged_raster_predictions_for_batch.GetRasterBand(
-        1), contourInterval=0.0, contourBase=1.0, fixedLevelCount=fixedLevelCount, useNoData=0, noDataValue=0, dstLayer=out_geojson_layer, idField=0, elevField=1)
-
-    out_geojson_source = None
-
-
-def get_batch_output_dir(data_samples, output_dir, suffix):
-    input_img_name = Path(data_samples[0]['image'].file_path).stem
-
-    prediction_output_dir_geojson = os.path.abspath(
-        os.path.join(output_dir, input_img_name + suffix+".json"))
-    return prediction_output_dir_geojson
-
-
-def get_transformation(data_sample):
-=======
 def get_transformation(data_sample: dict):
->>>>>>> origin/master
     transformation = data_sample['image'].geo_transform
     return transformation
 
