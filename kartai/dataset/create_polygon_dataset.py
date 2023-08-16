@@ -30,10 +30,7 @@ from sqlalchemy import create_engine
 from kartai.dataset.PredictionArea import fetch_data_to_predict
 
 
-# Used by API
-
-
-def create_predicted_buildings_dataset(geom, checkpoint_name, config, region_name):
+def create_predicted_features_dataset(geom, checkpoint_name, config, region_name):
     skip_to_postprocess = False  # For testing
     projection = "EPSG:25832"
     if skip_to_postprocess == False:
@@ -57,15 +54,15 @@ def create_predicted_buildings_dataset(geom, checkpoint_name, config, region_nam
         glob.glob(raster_dir))
 
     crs = get_defined_crs_from_config(config)
-    all_predicted_buildings_dataset = get_all_predicted_buildings_dataset(
+    all_predicted_features_dataset = get_all_predicted_features_dataset(
         predictions_path, crs)
-    return all_predicted_buildings_dataset
+    return all_predicted_features_dataset
 
 
 def save_dataset(data, filename, output_dir, modelname, save_to):
     if (save_to == 'azure'):
         upload_data_to_azure(data,  modelname+'/'+filename, env.get_env_variable(
-            "building_datasets_container_name"))
+            "results_datasets_container_name"))
     else:
         save_dataset_locally(data, filename, output_dir)
 
@@ -303,7 +300,7 @@ def get_tuples_to_predict(input_batch):
     return tupples_to_predict
 
 
-def produce_vector_buildings(output_dir, raster_dir, config, max_batch_size, modelname, save_to):
+def produce_vector_dataset(output_dir, raster_dir, config, max_batch_size, modelname, save_to):
 
     raster_filenames = os.listdir(raster_dir)
     print('output_dir', output_dir)
@@ -331,13 +328,13 @@ def produce_vector_buildings(output_dir, raster_dir, config, max_batch_size, mod
                                                       batch_size:i*batch_size+batch_size]
 
         crs = get_defined_crs_from_config(config)
-        all_predicted_buildings_dataset = create_all_predicted_buildings_vectordata(
+        all_predicted_features_dataset = create_all_predicted_features_vectordata(
             batch_prediction_paths, crs)
-        if all_predicted_buildings_dataset:
-            save_dataset(all_predicted_buildings_dataset,
+        if all_predicted_features_dataset:
+            save_dataset(all_predicted_features_dataset,
                          f'raw_predictions_{str(i)}.json', output_dir, modelname, save_to)
             # Free memory
-            del all_predicted_buildings_dataset
+            del all_predicted_features_dataset
 
     print('---PROCESS COMPLETED')
 
@@ -373,20 +370,20 @@ def get_raw_predictions(predictions_path):
     return raw_prediction_imgs
 
 
-def create_all_predicted_buildings_vectordata(predictions_path, crs):
+def create_all_predicted_features_vectordata(predictions_path, crs):
 
-    all_predicted_buildings_dataset = get_all_predicted_buildings_dataset(
+    all_predicted_features_dataset = get_all_predicted_features_dataset(
         predictions_path, crs)
 
-    if all_predicted_buildings_dataset.empty:
+    if all_predicted_features_dataset.empty:
         return None
 
     # justering på datasettene
 
-    all_predicted_buildings_dataset = add_confidence_values(
-        all_predicted_buildings_dataset, predictions_path)
+    all_predicted_features_dataset = add_confidence_values(
+        all_predicted_features_dataset, predictions_path)
 
-    return all_predicted_buildings_dataset.to_json()
+    return all_predicted_features_dataset.to_json()
 
 
 def add_confidence_values(dataset, predictions_path):
@@ -404,10 +401,10 @@ def add_confidence_values(dataset, predictions_path):
 
 def simplify_dataset(dataset):
     """Simplify the data by removing small areas, and removing points from the polygons by running simplify"""
-    # Remove all small buildings in dataset
+    # Remove all small features in dataset
     dataset = dataset.loc[dataset.geometry.area > 1]
 
-    # Remove points in polygons to get better building-look
+    # Remove points in polygons to get better "look" for the features.
     dataset['geometry'] = dataset.simplify(
         tolerance=0.25)
 
@@ -453,7 +450,7 @@ def get_fkb_labels(config, region_path, crs):
     return df
 
 
-def get_all_predicted_buildings_dataset(predictions_path, crs, region_dir=None):
+def get_all_predicted_features_dataset(predictions_path, crs, region_dir=None):
     """Create a vector dataset of the prediction raster tiles"""
 
     print("\nCreating vectordata from prediction tiles")
@@ -473,15 +470,15 @@ def get_all_predicted_buildings_dataset(predictions_path, crs, region_dir=None):
     if predictions.empty:
         return predictions
 
-    # Remove all buildings with area less than 1 square meter
+    # Remove all features with area less than 1 square meter
     predictions['geometry'] = get_valid_geoms(predictions)
     merged_predictions = merge_connected_geoms(predictions)
 
-    # Remove points in polygons to get better building-look
+    # Remove points in polygons to get better look for the predictions
     merged_predictions['geometry'] = merged_predictions.simplify(
         tolerance=0.25)
 
-    # Remove all buildings with area less than 1 square meter
+    # Remove all features with area less than 1 square meter
     cleaned_dataset = merged_predictions.loc[merged_predictions.geometry.area > 1]
 
     cleaned_dataset.set_crs(crs, inplace=True)

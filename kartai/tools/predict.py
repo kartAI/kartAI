@@ -13,7 +13,7 @@ from tensorflow import keras
 
 import env
 from kartai.datamodels_and_services.ImageSourceServices import Tile
-from kartai.dataset.create_building_dataset import Confidence
+from kartai.dataset.create_polygon_dataset import Confidence
 from kartai.dataset.format_conversion import np_to_gdal_mem
 from kartai.dataset.raster_process_tools import merge_data
 from kartai.exceptions import CheckpointNotFoundException, InvalidCheckpointException
@@ -28,7 +28,7 @@ from kartai.metrics.meanIoU import (Iou_point_5, Iou_point_6, Iou_point_7,
 def predict_and_evaluate(created_datasets_path, datagenerator_config, checkpoint_name_to_predict_with, save_prediction_images=True, save_diff_images=True, generate_metadata=True, dataset_to_evaluate="test"):
 
     has_checkpoint = checkpoint_exist(checkpoint_name_to_predict_with)
-    if(not has_checkpoint):
+    if (not has_checkpoint):
         raise CheckpointNotFoundException("Checkpoint does not exist")
     try:
         model = load_checkpoint_model(checkpoint_name_to_predict_with)
@@ -203,7 +203,7 @@ def save_predicted_images_as_contour_vectors(np_predictions, data_samples,
     fieldDef = ogr.FieldDefn("elev", ogr.OFTReal)
     out_geojson_layer.CreateField(fieldDef)
 
-    #fixedLevelCount=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+    # fixedLevelCount=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
     fixedLevelCount = [0, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
 
     ''' ContourGenerate(Band srcBand, double contourInterval, double contourBase,int fixedLevelCount, int useNoData, double noDataValue, Layer dstLayer, int idField, int elevField, GDALProgressFunc callback=0, void * callback_data=None) -> int '''

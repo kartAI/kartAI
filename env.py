@@ -8,7 +8,7 @@ config = {
     "models_container_name": "models-v2",
     "ksand_performances_container_name": "ksand-performances",
     "balsfjord_performances_container_name": "balsfjord-performances-adjusted",
-    "building_datasets_container_name": "building-datasets",
+    "results_datasets_container_name": "building-datasets",
     "trained_models_directory": "checkpoints",
     "prediction_results_directory": "results",
     "cached_data_directory": 'training_data',

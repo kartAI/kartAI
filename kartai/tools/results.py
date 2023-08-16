@@ -10,7 +10,7 @@ from azure import blobstorage
 import shutil
 import env
 from pandasgui import show
-from kartai.dataset.create_building_dataset import get_all_predicted_buildings_dataset, get_fkb_labels, run_ml_predictions
+from kartai.dataset.create_polygon_dataset import get_all_predicted_features_dataset, get_fkb_labels, run_ml_predictions
 from kartai.dataset.performance_count import get_new_buildings_fasit, get_performance_count_for_detected_buildings, get_true_labels
 from kartai.dataset.resultRegion import ResultRegion
 from kartai.dataset.test_area_utils import get_test_region_avgrensning_dir
@@ -197,13 +197,13 @@ def run_performance_tests(models, crs, region, region_name, config_path):
         predictions_path = sorted(
             glob.glob(get_raster_predictions_dir(region_name+"_test_area", model)+f"/*{output_predictions_name}"))
 
-        prediction_dataset_gdf = get_all_predicted_buildings_dataset(
+        prediction_dataset_gdf = get_all_predicted_features_dataset(
             predictions_path, crs, region)
 
         performance_output_dir = get_performance_output_dir(region_name)
 
         false_count, true_count, true_new_buildings_count, all_missing_count = get_performance_count_for_detected_buildings(
-            prediction_dataset_gdf, predictions_path, true_labels, new_buildings_fasit, crs, model_name, performance_output_dir, region_name)
+            prediction_dataset_gdf, predictions_path, true_labels, new_buildings_fasit, model_name, performance_output_dir)
 
         iou = get_iou_for_region(
             prediction_dataset_gdf, true_labels, region, crs)

@@ -1,10 +1,10 @@
 import os
 import geopandas as gp
-from kartai.dataset.create_building_dataset import add_confidence_values, clip_to_polygon, get_valid_geoms
+from kartai.dataset.create_polygon_dataset import add_confidence_values, clip_to_polygon, get_valid_geoms
 from kartai.dataset.test_area_utils import get_adjusted_labels_dirs
 
 
-def get_performance_count_for_detected_buildings(all_predicted_buildings, predictions_path, true_labels, new_buildings_fasit, crs, model_name, performance_output_dir, region_name):
+def get_performance_count_for_detected_buildings(all_predicted_buildings, predictions_path, true_labels, new_buildings_fasit, model_name, performance_output_dir):
     """Create datasets for the different category of predictions. True, false and missing"""
 
     print("\nCreating correctly detected buildings")

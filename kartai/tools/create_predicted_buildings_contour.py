@@ -1,6 +1,6 @@
 
 import argparse
-from kartai.dataset.create_building_dataset import run_ml_predictions
+from kartai.dataset.create_polygon_dataset import run_ml_predictions
 from kartai.tools.predict import create_contour_result
 from kartai.utils.config_utils import read_config
 from kartai.utils.crs_utils import get_projection_from_config_path

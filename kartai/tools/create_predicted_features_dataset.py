@@ -1,6 +1,6 @@
 import argparse
 import time
-from kartai.dataset.create_building_dataset import produce_vector_buildings, run_ml_predictions
+from kartai.dataset.create_polygon_dataset import produce_vector_dataset, run_ml_predictions
 from kartai.utils.config_utils import read_config
 from kartai.utils.crs_utils import get_projection_from_config_path
 from kartai.utils.geometry_utils import parse_region_arg
@@ -10,8 +10,8 @@ from kartai.utils.train_utils import get_existing_model_names
 
 def add_parser(subparser):
     parser = subparser.add_parser(
-        "create_predicted_buildings_dataset",
-        help="Create dataset with buildings from ML prediction",
+        "create_predicted_features_dataset",
+        help="Create dataset with features from ML prediction",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
@@ -61,5 +61,5 @@ def main(args):
     raster_predictions_path = get_raster_predictions_dir(
         args.region_name, args.checkpoint_name)
 
-    produce_vector_buildings(
+    produce_vector_dataset(
         vector_output_dir, raster_predictions_path, config, args.max_mosaic_batch_size, f"{args.region_name}_{args.checkpoint_name}", save_to="local")
