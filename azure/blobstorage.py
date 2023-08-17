@@ -4,6 +4,8 @@ import env
 from pathlib import Path
 from azure.storage.blob import BlobServiceClient, __version__
 
+from kartai.dataset.resultRegion import ResultRegion
+
 
 def upload_model_to_azure_blobstorage(modelname):
 
@@ -109,7 +111,7 @@ def get_available_trained_models():
         raise Exception("Could not fetch existing trained models")
 
 
-def get_available_performances(region_name):
+def get_available_performances(region_name: ResultRegion):
     try:
         connect_str = env.get_env_variable('AZURE_STORAGE_CONNECTION_STRING')
         blob_service_client = BlobServiceClient.from_connection_string(
@@ -130,6 +132,7 @@ def get_available_performances(region_name):
 
 
 def download_trained_models():
+    """Download checkpoint files from azure"""
     models = get_available_trained_models()
     for model in models:
         checkpoint_path = os.path.join(env.get_env_variable(
@@ -139,7 +142,9 @@ def download_trained_models():
             download_model_file_from_azure(Path(model).stem)
 
 
-def download_performances(download_file_path, region_name):
+def download_performances(download_file_path: str, region_name: ResultRegion):
+    """Download performance files from azure"""
+
     performance_metafiles = get_available_performances(region_name)
     for performance_file in performance_metafiles:
         performance_file_path = os.path.join(

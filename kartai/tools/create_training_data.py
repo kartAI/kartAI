@@ -11,6 +11,7 @@ from osgeo import gdal, ogr
 
 from env import get_env_variable
 from kartai.datamodels_and_services.Region import Region
+from kartai.utils.crs_utils import get_defined_crs_from_config
 from kartai.utils.dataset_utils import (check_for_existing_dataset,
                                         get_dataset_region)
 from kartai.datamodels_and_services.DatasetBuilder import DatasetBuilder
@@ -74,7 +75,7 @@ def create_training_data(training_dataset_name, config_file_path, eager_load=Fal
 
     tile_grid = getTileGrid(config)
 
-    if(region and not os.path.isfile(region)):
+    if (region and not os.path.isfile(region)):
         raise Exception(
             "The given region does not exist at given path", region)
 
@@ -89,9 +90,9 @@ def create_training_data(training_dataset_name, config_file_path, eager_load=Fal
         f"-------creating dataset ------- \n name: {training_dataset_name}")
 
     # Find general datasets, to be splitted into train / valid / test
-    dataset = createDataset(image_sources, config, config["ImageSources"], region=reg,
-                            eager_load=eager_load, num_processes=num_processes,
-                            confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint)
+    dataset = create_dataset(image_sources, config, config["ImageSources"], region=reg,
+                             eager_load=eager_load, num_processes=num_processes,
+                             confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint)
     # Split into training, test, validation
     training_fraction, validation_fraction = 0.8, 0.1
 
@@ -167,10 +168,10 @@ def create_training_data(training_dataset_name, config_file_path, eager_load=Fal
             break
 
     max_size = "None"
-    if("ProjectArguments" in config and "max_size" in config["ProjectArguments"]):
+    if ("ProjectArguments" in config and "max_size" in config["ProjectArguments"]):
         max_size = config["ProjectArguments"]["max_size"]
 
-  #id, training_dataset_name, tile_size, area_extent, region, max_size, division, out_folder
+  # id, training_dataset_name, tile_size, area_extent, region, max_size, division, out_folder
     create_metadata_file(training_dataset_id,
                          training_dataset_name, tile_size,
                          [x_min, y_min, x_max, y_max],
@@ -182,8 +183,8 @@ def create_training_data(training_dataset_name, config_file_path, eager_load=Fal
     return output_directory
 
 
-def createDataset(image_sources, config, image_source_config, region, eager_load,
-                  num_processes=None, confidence_threshold=None, eval_model_checkpoint=None):
+def create_dataset(image_sources, config, image_source_config, region, eager_load,
+                   num_processes=None, confidence_threshold=None, eval_model_checkpoint=None):
     if "ImageSets" not in config or not config["ImageSets"]:
         print("No image sets")
         return []
@@ -251,13 +252,13 @@ def getImageSources(config, cache_root, tile_grid, eager_load, confidence_thresh
     # Find presplitted train / valid / test
     train_set, valid_set, test_set = [], [], []
     if "TrainingSet" in config:
-        train_set = createDataset(
+        train_set = create_dataset(
             image_sources, config["TrainingSet"], config["ImageSources"], region=region, eager_load=eager_load, confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint)
     if "ValidationSet" in config:
-        valid_set = createDataset(
+        valid_set = create_dataset(
             image_sources, config["ValidationSet"], config["ImageSources"], region=region, eager_load=eager_load, confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint)
     if "TestSet" in config:
-        test_set = createDataset(
+        test_set = create_dataset(
             image_sources, config["TestSet"], config["ImageSources"], region=region, eager_load=eager_load, confidence_threshold=confidence_threshold, eval_model_checkpoint=eval_model_checkpoint)
 
     return image_sources, train_set, valid_set, test_set
@@ -275,7 +276,8 @@ def add_parser(subparser):
                         help="Data configuration file", required=True)
     parser.add_argument("-eager", "--eager_load", type=bool,
                         help="Complete download of training data, and skip lazy loading", required=False, default=False)
-    parser.add_argument("-mp", "--num_load_processes", type=int, required=False)
+    parser.add_argument("-mp", "--num_load_processes",
+                        type=int, required=False)
     parser.add_argument("--x_min", type=float,
                         help="Western boundary of training data", required=False)
     parser.add_argument("--y_min", type=float,

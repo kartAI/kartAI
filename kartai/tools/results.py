@@ -5,17 +5,20 @@ import glob
 import json
 import os
 from pathlib import Path
-
 import pandas as pd
 from azure import blobstorage
 import shutil
 import env
 from pandasgui import show
-from kartai.dataset.create_building_dataset import get_all_predicted_buildings_dataset, run_ml_predictions
-from kartai.dataset.performance_count import get_performance_count_for_detected_buildings
+from kartai.dataset.create_building_dataset import get_all_predicted_buildings_dataset, get_fkb_labels, run_ml_predictions
+from kartai.dataset.performance_count import get_new_buildings_fasit, get_performance_count_for_detected_buildings, get_true_labels
+from kartai.dataset.resultRegion import ResultRegion
+from kartai.dataset.test_area_utils import get_test_region_avgrensning_dir
+from kartai.models.model import Model
 from kartai.tools.create_training_data import create_training_data
-from kartai.dataset.Iou_calculations import get_IoU_for_region
+from kartai.dataset.Iou_calculations import get_iou_for_region
 from kartai.utils.prediction_utils import get_raster_predictions_dir
+from kartai.utils.crs_utils import get_defined_crs_from_config_path
 
 
 def add_parser(subparser):
@@ -24,19 +27,17 @@ def add_parser(subparser):
         help="show results table",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument('-ksand', type=bool,
-                        help='Whether to run ksand tests for the models', required=False)
-    parser.add_argument('-balsfjord', type=bool,
-                        help='Whether to run balsfjord tests for the models', required=False)
+    parser.add_argument('-test_region', type=str, choices=[ResultRegion.KRISTIANSAND, ResultRegion.BALSFJORD],
+                        help='A test region to run prediction on', required=False)
     parser.add_argument('-preview', type=bool,
-                        help='preview results so far', required=False)
-    parser.add_argument('-skip_downloads', type=bool,
-                        help='Skip downloading from azure', required=False)
+                        help='preview results so far', required=False, default=False)
+    parser.add_argument('-download_models', type=bool,
+                        help='Downloading existing trained models from azure', required=False, default=False)
 
     parser.set_defaults(func=main)
 
 
-def download_all_performance_meta_files(region_name):
+def download_all_performance_meta_files(region_name: ResultRegion):
     # Start by downloading all models if not already downloaded
     output_directory = get_performance_output_dir(region_name)
     if not os.path.exists(output_directory):
@@ -58,14 +59,14 @@ def download_all_models():
     return models
 
 
-def create_dataframe_result(models, region_name):
+def create_dataframe_result(models: list[Model], region_name: ResultRegion):
     rows = []
     for model in models:
         model_name = Path(model).stem
         performance_metadata_path = get_performance_meta_path(
             model_name, region_name)
 
-        if(not os.path.isfile(performance_metadata_path)):
+        if (not os.path.isfile(performance_metadata_path)):
             continue
         with open(performance_metadata_path) as f:
             metadata = json.load(f)
@@ -105,7 +106,7 @@ def show_general_model_performance(models):
 
         row = {}
         for key in keys:
-            if(key == 'training_results'):
+            if (key == 'training_results'):
                 value = max(metadata[key]['val_Iou_point_5'])
                 row['Val IoU .5'] = value
                 value = max(metadata[key]['Iou_point_5'])
@@ -129,10 +130,10 @@ def show_general_model_performance(models):
                 'report_trained_models.xlsx'), index=False)
 
 
-def get_dataset_name_and_path(model_name, dataset_name):
+def get_dataset_name_and_path(model_name: str, dataset_name: str):
     # TODO: add better check in order to find if model is height model and stack/twin model
     tupple_data = False
-    if('ndh' in model_name or 'twin' in model_name):
+    if ('ndh' in model_name or 'twin' in model_name):
         if 'twin' in model_name:
             tupple_data = True
         area_dataset_name = f'{dataset_name}_ndh_prosjektomrade_not_adjusted_test_set'
@@ -145,48 +146,74 @@ def get_dataset_name_and_path(model_name, dataset_name):
     return area_dataset_name, area_dataset_path, tupple_data
 
 
-def run_performance_tests(models, crs, region_name, config_path):
+def run_performance_tests(models: list[Model], crs: str, region: str, region_name: ResultRegion, config_path: str):
     # Create performance-metadata file for each performance test
 
     output_predictions_name = "_prediction.tif"
     download_all_performance_meta_files(region_name)
 
+    crs = get_defined_crs_from_config_path(config_path)
+
+    with open(config_path, "r") as config_file:
+        config: dict = json.load(config_file)
+
+    true_labels = get_true_labels(
+        region_name, region, crs)
+
+    fkb_labels = get_fkb_labels(
+        config, region, crs)
+
+    new_buildings_fasit = get_new_buildings_fasit(
+        true_labels, fkb_labels)
+
+    new_buildings_fasit.to_file(
+        "new_buildings_fasit.geojson", driver="GeoJSON", index=False)
+
     for model in models:
         model_name = Path(model).stem
         dataset_name, dataset_path, tupple_data = get_dataset_name_and_path(
             model_name, region_name)
-        if(not os.path.exists(dataset_path)):
+        if (not os.path.exists(dataset_path)):
             create_performance_validaton_dataset(dataset_name, config_path)
 
         iteration = models.index(model)
 
-        if(has_run_performance_check(model_name, region_name)):
+        if (has_run_performance_check(model_name, region_name)):
             continue
 
         print(f'Start proccess for model {iteration} of {len(models)}')
-        run_ml_predictions(model_name, region_name+"_test_area", crs, dataset_path_to_predict=dataset_path,
-                           skip_data_fetching=True, tupple_data=tupple_data, download_labels=True)
+
+        if "segformer" in model_name:
+            # In order to test a segformer model you have to create the raster predictions in other repo, and then
+            # copy them to the results folder. Checking if that folder exist:
+            raster_output_dir = get_raster_predictions_dir(
+                region_name+"_test_area", model_name)
+            if not os.path.isdir(raster_output_dir):
+                raise Exception(
+                    f'Raster predictions for model {model_name} is not defined. Since it is a segformer model, the prediction rasters have to be produced in a different repository, and then copied to the results folder')
+        else:
+            run_ml_predictions(model_name, region_name+"_test_area", crs, input_model_subfolder=None, dataset_path_to_predict=dataset_path,
+                               skip_data_fetching=True, tupple_data=tupple_data, download_labels=True)
 
         predictions_path = sorted(
             glob.glob(get_raster_predictions_dir(region_name+"_test_area", model)+f"/*{output_predictions_name}"))
 
         prediction_dataset_gdf = get_all_predicted_buildings_dataset(
-            predictions_path, crs)
-
-        IoU = get_IoU_for_region(prediction_dataset_gdf, region_name, crs)
+            predictions_path, crs, region)
 
         performance_output_dir = get_performance_output_dir(region_name)
 
-        false_count, true_count, true_new_buildings_count, fkb_missing_count, all_missing_count = get_performance_count_for_detected_buildings(
-            prediction_dataset_gdf, predictions_path, model_name, performance_output_dir, config_path, region_name)
+        false_count, true_count, true_new_buildings_count, all_missing_count = get_performance_count_for_detected_buildings(
+            prediction_dataset_gdf, predictions_path, true_labels, new_buildings_fasit, model_name, performance_output_dir)
 
+        iou = get_iou_for_region(
+            prediction_dataset_gdf, true_labels, region, crs)
         print('False detected buildings:', false_count)
         print('True detected buildings:', true_count)
-        print('Missed new building (not in fkb):', fkb_missing_count)
         print('All missing buildings', all_missing_count)
 
         create_performance_metadata_file(region_name,
-                                         IoU, model_name, false_count, true_count, true_new_buildings_count, fkb_missing_count, all_missing_count)
+                                         iou, model_name, false_count, true_count, true_new_buildings_count, all_missing_count)
 
         blobstorage.upload_model_performance_file(
             model_name + f'_{region_name}_performance', region_name)
@@ -194,38 +221,45 @@ def run_performance_tests(models, crs, region_name, config_path):
     create_dataframe_result(models, region_name)
 
 
-def create_performance_validaton_dataset(dataset_name, config_path):
-    if dataset_name == "ksand":
+def create_performance_validaton_dataset(dataset_name: str, config_path: str):
+    """Creating dataset for the region to make resulttable for"""
+    if ResultRegion.KRISTIANSAND == ResultRegion.from_str(dataset_name):
         create_training_data(dataset_name,
                              config_path, eager_load=True, x_min=437300, x_max=445700, y_min=6442000, y_max=6447400)
-    else:
+    elif ResultRegion.BALSFJORD == ResultRegion.from_str(dataset_name):
         create_training_data(dataset_name,
                              config_path, eager_load=True, region="training_data/regions/balsfjord_test_area.geojson")
+    else:
+        raise NotImplementedError("Unsupported region")
 
 
-def has_run_performance_check(model_name, region_name):
+def has_run_performance_check(model_name: str, region_name: str):
+    """Checks wether there already exists a peformance file for the given model in the given region"""
     meta_path = get_performance_meta_path(model_name, region_name)
     return os.path.isfile(meta_path)
 
 
-def get_performance_output_dir(name):
+def get_performance_output_dir(name: str):
+    """Directory for where performance files should be saved"""
     return os.path.join(env.get_env_variable(
         'prediction_results_directory'), name+"_performance")
 
 
 def get_predictions_output_dir():
+    """Directory for where prediction files should be saved when running "result" module """
     return os.path.join(env.get_env_variable(
         'prediction_results_directory'), 'prediction_for_performance_test')
 
 
-def get_performance_meta_path(model_name, region_name):
+def get_performance_meta_path(model_name: str, region_name: str):
+    """Directory for where performance meta file should be saved"""
     out_folder = get_performance_output_dir(region_name)
     file_name = model_name + f'_{region_name}_performance.json'
     path = os.path.join(out_folder, file_name)
     return path
 
 
-def get_checkpoint_meta_file_dir(model_name):
+def get_checkpoint_meta_file_dir(model_name: Model):
     checkpoints_directory = env.get_env_variable('trained_models_directory')
 
     # Support checkpoints from old and new format
@@ -241,7 +275,7 @@ def get_checkpoint_meta_file_dir(model_name):
         raise Exception("Cannot find meta file for model:", model_name)
 
 
-def create_performance_metadata_file(region_name, IoU, model_name, false_count, true_buildings_count, true_new_buildings_count, fkb_missing_count, all_missing_count):
+def create_performance_metadata_file(region_name: ResultRegion, IoU: float, model_name: str, false_count: int, true_buildings_count: int, true_new_buildings_count: int, all_missing_count: int):
 
     out_folder = get_performance_output_dir(region_name)
 
@@ -262,7 +296,6 @@ def create_performance_metadata_file(region_name, IoU, model_name, false_count, 
         "Falske detekterte bygninger": false_count,
         "Manglende detekterte bygninger": all_missing_count,
         "Sanne detekterte 'nye' bygninger": true_new_buildings_count,
-        "Manglende detekterte 'nye' bygninger": fkb_missing_count,
         "training_params": {
             "val_iou_point_5": get_training_iou_results(training_metadata_file),
             "dataset": training_metadata_file['training_dataset_name'] if "training_dataset_name" in training_metadata_file else "kartai-stream",
@@ -279,20 +312,29 @@ def create_performance_metadata_file(region_name, IoU, model_name, false_count, 
     print("created metadata-file:\n", json.dumps(meta,  indent=ident))
 
 
-def get_training_iou_results(training_metadata_file):
+def get_training_iou_results(training_metadata_file: object):
+    """Get IoU metric from the metadata file from a trained model"""
     training_results = -1
-    if("training_results" in training_metadata_file):
-        training_results = max(
+    if ("training_results" in training_metadata_file):
+        return max(
             training_metadata_file['training_results']['val_Iou_point_5'])
     else:
         for log in training_metadata_file["logs"]:
-            if log["val_Iou_point_5"] > training_results:
-                training_results = log["val_Iou_point_5"]
-    return training_results
+            if "val_segformer_iou_point_5" in log:
+                if log["val_segformer_iou_point_5"] > training_results:
+                    return log["val_segformer_iou_point_5"]
+            elif "val_Iou_point_5" in log:
+                if log["val_Iou_point_5"] > training_results:
+                    return log["val_Iou_point_5"]
+            elif "val_IoU" in log:
+                if log["val_IoU"] > training_results:
+                    return log["val_IoU"]
+            else:
+                raise NotImplementedError("Unknown metric")
 
 
-def empty_folder(folder):
-    if(not os.path.exists(folder)):
+def empty_folder(folder: str):
+    if (not os.path.exists(folder)):
         return
     for filename in os.listdir(folder):
         file_path = os.path.join(folder, filename)
@@ -307,7 +349,7 @@ def empty_folder(folder):
 
 def main(args):
 
-    if not args.skip_downloads:
+    if args.download_models:
         download_data = input(
             "Do you want to download model checkpoints from azure? \nDownload? Answer 'y' \nSkip? Answer 'n':\n ")
         if download_data == 'y':
@@ -327,14 +369,12 @@ def main(args):
     models = local_models_kartai + local_models_kartai_stream
 
     crs = "EPSG:25832"
-    if args.preview == True:
+    if args.preview is True:
         create_dataframe_result(
-            models, region_name="ksand" if args.ksand else "balsfjord")
-    if args.ksand == True:
-        run_performance_tests(models, crs, region_name="ksand",
-                              config_path="config/dataset/ksand-manuell.json")
-    if args.balsfjord == True:
-        run_performance_tests(models, crs, region_name="balsfjord",
+            models, region_name=args.test_region)
+    elif args.test_region:
+        region = get_test_region_avgrensning_dir(args.test_region)
+        run_performance_tests(models, crs, region, region_name=args.test_region,
                               config_path="config/dataset/bygg_test.json")
     else:
         show_general_model_performance(models)

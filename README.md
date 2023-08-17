@@ -28,11 +28,11 @@ The repository allows you to easily create training data for any sort of vector 
   - [Train script](#train-script)
   - [Run multiple training processes](#run-multiple-training-processes)
 - [Evaluating the models](#evaluating-the-models)
-  - [IoU result table](#iou-result-table)
-  - [Building count result table](#building-count-result-table)
+  - [Result table](#result-table)
 - [Using the trained models](#using-the-trained-models)
   - [Predict](#predict)
   - [Create vectordata](#create-vectordata)
+  - [Create countour vectordata](#create-contour-vectordata)
 
 ## Prerequisites
 
@@ -379,19 +379,20 @@ Windows:
 
 We have created an automatic process for generating a result table that gives an overview of all the trained models performance.
 
-### IoU result table
+### Result table
 
 Get a complete view of performance of the different models.
 The script opens a GUI table to view results, as well as creating an excel file.
 
-By adding the parameter `-ksand True` you will instead get a full list of how each model is performing on the given test area for the project.
+By default the module shows an overview of IoU from validation during training.
+By passing a test_region we will run a prediction on the given region, and perform a comparison to a manually edited dataset with labels to see how the model actually performs.
 
 Arguments:
 
-| Argument | Description                                   |
-| -------- | :-------------------------------------------- |
-| -ksand     | Wether to run test on ksand area, which counts numbers of detected buildings |
-| -skip_download     | Wether to skip downloading models from azure |
+| Argument | Description |Required | Type | Default |
+| -------- | :-------------------------------------------- | -------- |-------------------- | -------- |
+| -test_region     | Run test on a region, and get counts of detected buildings, missing buildings and false buildings | No | "ksand" or "balsfjord" | None |
+| -download_models     | Downloading all trained models from azure | No | bool | False
 
 Unix:
 
@@ -436,19 +437,18 @@ Running creation of vectordata will download to wanted model from azure, before 
 This module will:
 
 - Create a dataset for the given region. Dataset is written to `training_data/created_datasets/for_prediction/{region_name}.json`
-- The chosen ML model (given with the -cn argument) will be used to run predicitons on each of the images in the created dataset, and save the resulting grey-scale rasters to `results/{region_name}/{checkpoint_name}/rasters`
+- The chosen ML model (given with the -cn argument) will be used to run predictions on each of the images in the created dataset, and save the resulting grey-scale rasters to `results/{region_name}/{checkpoint_name}/rasters`
 - Finally gdal_polygonize is used to create vector geojson layers for batches of data. These layers area written to `results/{region_name}/{checkpoint_name}/vectors`
 
 Arguments:
 
 | Argument |Description  |  type |  required | default|                                                                                                                                                                                     |
 | -------- | :--------| -----| -----| -----| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| -rn --region_name      | region name, often set to the same as the name of the passed region. This name will match the result directory. | string | yes                                                                                                                                                                        |
-| -cn --checkpoint_name     | name of the trained model used for prediction   | string | yes
-| --region | Polygon or MultiPolygon describing data area with coordinates in same system as defined in config (i.e EPSG:25832), WKT or geojson (geometry) format, directly in a text string or as a filename | WKT, jsontext, or filename | yes |
-| -c      |Data config path | string | yes
+| -rn --region_name      | region name, often set to the same as the name of the passed region. This name will match the result directory. | string | Yes                                                                                                                                                                        |
+| -cn --checkpoint_name     | name of the trained model used for prediction   | string | Yes
+| --region | Polygon or MultiPolygon describing data area with coordinates in same system as defined in config (i.e EPSG:25832), WKT or geojson (geometry) format, directly in a text string or as a filename | WKT, jsontext, or filename | Yes |
+| -c      |Data config path | string | Yes
 | -mb      |Max batch size for creating mosaic of the predictions | int | No | 200
-| -extra      | Whether or not to create extra datasets for tilbygg, frittliggende and existing buildings as well | string | No | "false"
 | -p      | Whether to skip directly to postprocessing, and not look for needed downloaded data. Typically used if you have already run production of dataset for same area, but with different model | bool | No | False
 | -s      | Whether to save resulting vectordata to azure or locally. Options as 'local' or 'azure' | string | No | azure
 
@@ -468,7 +468,7 @@ Create a contour vector dataset with predicted data from a chosen ML model, on a
 This module will:
 
 - Create a dataset for the given region. Dataset is written to `training_data/created_datasets/for_prediction/{region_name}.json`
-- The chosen ML model (given with the -cn argument) will be used to run predicitons on each of the images in the created dataset, and save the resulting grey-scale rasters to `results/{region_name}/{checkpoint_name}/rasters`
+- The chosen ML model (given with the -cn argument) will be used to run predictions on each of the images in the created dataset, and save the resulting grey-scale rasters to `results/{region_name}/{checkpoint_name}/rasters`
 - Finally gdal_countour is used to create a contour geojson layer for the entire region (using a virtual raster layer produced in previous step). This layer is written to `results/{region_name}/{checkpoint_name}/contour`
 
 The script will download to wanted model from azure if it is not already downloaded, before running prediction.
@@ -477,12 +477,13 @@ Arguments:
 
 | Argument |Description  |  type |  required | default|                                                                                                                                                                                     |
 | -------- | :--------| -----| -----| -----| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| -rn --region_name      | region name, often set to the same as the name of the passed region. This name will match the result directory. | string | yes                                                                                                                                                                        |
-| -cn --checkpoint_name     | name of the trained model used for prediction   | string | yes
-| --region | Polygon or MultiPolygon describing data area with coordinates in same system as defined in config (i.e EPSG:25832), WKT or geojson (geometry) format, directly in a text string or as a filename | WKT, jsontext, or filename | yes |
-| -c      |Data config path | string | yes
+| -rn --region_name      | region name, often set to the same as the name of the passed region. This name will match the result directory. | string | Yes                                                                                                                                                                        |
+| -cn --checkpoint_name     | name of the trained model used for prediction   | string | Yes
+| --region | Polygon or MultiPolygon describing data area with coordinates in same system as defined in config (i.e EPSG:25832), WKT or geojson (geometry) format, directly in a text string or as a filename | WKT, jsontext, or filename | Yes |
+| -c      |Data config path | string | No |"config/dataset/bygg-no-rules.json"
 | -mb      |Max batch size when running predictions | int | No | 200
 | -s      | Whether to save resulting vectordata to azure or locally. Options as 'local' or 'azure' | string | No | azure
+| -l      | The confidence levels to create contours for. | string - comma seperated list of float numbers|No | "0.3, 0.4, 0.5, 0.6, 0.8, 0.9, 1"
 
 Example:
 
