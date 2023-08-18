@@ -1,8 +1,6 @@
-from tensorflow import keras
 import tensorflow as tf
-from keras.utils import tf_utils
 
-class Confidence(keras.metrics.Metric):
+class Confidence(tf.keras.metrics.Metric):
     def __init__(self, confusion_weight=1.0, **kwargs):
         super(Confidence, self).__init__(**kwargs)
         self.confidence_sum = self.add_weight(
@@ -26,13 +24,14 @@ class Confidence(keras.metrics.Metric):
         self.count.assign_add(tf.cast(tf.size(confidence), self._dtype))
 
         # Return confidence
-        self.confidence.extend(
-            tf_utils.sync_to_numpy_or_python_type(confidence))
+        self.confidence = confidence
 
     def result(self):
-        return tf.math.divide_no_nan(self.confidence_sum, self.count)
+        return {"confidence": tf.math.divide_no_nan(self.confidence_sum, self.count),
+                "sample_confidence": self.confidence}
 
     def reset_state(self):
         self.confidence_sum.assign(0.)
         self.count.assign(0.)
-        self.confidence = []
+        self.confidence = None
+

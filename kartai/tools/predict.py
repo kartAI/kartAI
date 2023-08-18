@@ -8,7 +8,7 @@ from osgeo import gdal, ogr, osr
 from tensorflow import keras
 import env
 from kartai.datamodels_and_services.ImageSourceServices import Tile
-from kartai.dataset.create_building_dataset import Confidence
+from kartai.utils.confidence import Confidence
 from kartai.exceptions import CheckpointNotFoundException, InvalidCheckpointException
 from kartai.utils.model_utils import get_ground_truth, load_checkpoint_model, _get_input_images, checkpoint_exist
 from kartai.tools.train import get_optimizer
@@ -43,7 +43,7 @@ def predict_and_evaluate(created_datasets_path: str, datagenerator_config: str, 
     opt = get_optimizer("RMSprop", False)
 
     model.compile(optimizer=opt, loss='binary_crossentropy',
-                  metrics=[keras.metrics.BinaryAccuracy(), IoU, IoU_fz, Iou_point_5, Iou_point_6, Iou_point_7, Iou_point_8, Iou_point_9, Confidence()], run_eagerly=True)
+                  metrics=[keras.metrics.BinaryAccuracy(), IoU, IoU_fz, Iou_point_5, Iou_point_6, Iou_point_7, Iou_point_8, Iou_point_9, Confidence()])
 
     # Evaluate model on test data
     results = model.evaluate(input_images, input_labels,
@@ -163,6 +163,8 @@ def get_transformation(data_sample: dict):
 def create_metadata_file(created_datasets_path, checkpoint_path, output_dir, results):
     ct = datetime.datetime.now()
     # TODO: fetch training dataset id instead of adding path
+
+    results["sample_confidence"] = results["sample_confidence"].tolist()
 
     meta = {"test dataset path:": str(created_datasets_path),
             "checkpoint name:": str(checkpoint_path),
