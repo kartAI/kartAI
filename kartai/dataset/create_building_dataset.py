@@ -474,7 +474,7 @@ def clip_to_polygon(dataset: gp.GeoDataFrame, polygon_file: str, crs: str):
 def merge_connected_geoms(geoms: gp.geodataframe):
     try:
         dissolved_geoms = geoms.dissolve()
-        dissolved_geoms = dissolved_geoms.explode().reset_index(drop=True)
+        dissolved_geoms = dissolved_geoms.explode(index_parts=True).reset_index(drop=True)
         return dissolved_geoms
     except Exception:
         print("could not connect geoms")
