@@ -1,5 +1,5 @@
 import tensorflow.keras.utils
-from tensorflow.keras import layers
+from tensorflow.keras import layers, Sequential
 from tensorflow import keras
 import tensorflow as tf
 
@@ -211,7 +211,7 @@ def decoder_block_catskip(input, skip_features, conv_block, features, block_name
     return x
 
 
-def get_model(img_size, num_classes, activation, conv_block, features, depth):
+def get_model(img_size, num_classes, activation, conv_block, features, depth) -> Sequential:
     inputs = layers.Input(img_size)
 
     # An initial layer to get the number of channels right
@@ -242,7 +242,7 @@ def get_model(img_size, num_classes, activation, conv_block, features, depth):
     return model
 
 
-def get_cross_model(img_size, num_classes, activation, conv_block, features, depth, use_CPP=False):
+def get_cross_model(img_size, num_classes, activation, conv_block, features, depth, use_CPP=False) -> Sequential:
     """Cross Connected Convolutional Partitioning Segmentation Neural Network (CCCP - Net)"""
     inputs = layers.Input(img_size)
 
@@ -325,26 +325,30 @@ def get_cross_model(img_size, num_classes, activation, conv_block, features, dep
     return model
 
 
-def twin_model_main(inputs, layer_type, activation, conv_block, features, depth):
+def twin_model_main(inputs, layer_type, activation, conv_block, features, depth) -> Sequential:
 
     x1 = conv_bn_act(inputs[0], features, 'input_layer_orto' +
-                    layer_type, 3, 1, activation)
+                     layer_type, 3, 1, activation)
     x2 = conv_bn_act(inputs[1], features, 'input_layer_height' +
-                    layer_type, 3, 1, activation)
+                     layer_type, 3, 1, activation)
 
     # Downsample
     skip = []
     for d in range(depth):
-        s1, x1 = strided_encoder_block(x1, conv_block, features * (2 ** d), f'encoder{d + 1}{layer_type}_orto', activation)
-        s2, x2 = strided_encoder_block(x2, conv_block, features * (2 ** d), f'encoder{d + 1}{layer_type}_height', activation)
-        skip.append(layers.concatenate([s1,s2]))
+        s1, x1 = strided_encoder_block(
+            x1, conv_block, features * (2 ** d), f'encoder{d + 1}{layer_type}_orto', activation)
+        s2, x2 = strided_encoder_block(
+            x2, conv_block, features * (2 ** d), f'encoder{d + 1}{layer_type}_height', activation)
+        skip.append(layers.concatenate([s1, s2]))
 
     # concatination
     x = layers.concatenate([x1, x2])
 
     # Final downsampled block
-    x = SPP_bottom_block(x, features * (2 ** depth),activation, (1, 5, 9, 13, 17), layer_type)
-    x = conv_block(x, features * (2 ** depth),f"bottom{layer_type}", activation)
+    x = SPP_bottom_block(x, features * (2 ** depth),
+                         activation, (1, 5, 9, 13, 17), layer_type)
+    x = conv_block(x, features * (2 ** depth),
+                   f"bottom{layer_type}", activation)
 
     # Upsample
     for d in reversed(range(depth)):
@@ -354,13 +358,14 @@ def twin_model_main(inputs, layer_type, activation, conv_block, features, depth)
     return x
 
 
-def get_unet_twin_model(img_size, num_classes, activation, features, depth, height_img_size):
+def get_unet_twin_model(img_size, num_classes, activation, features, depth, height_img_size) -> Sequential:
     conv_block = simple_conv_block
 
     inputs_img = layers.Input(img_size)
     inputs_height_img = layers.Input(height_img_size)
 
-    x = twin_model_main([inputs_img, inputs_height_img],'_twin',activation, conv_block, features, depth)
+    x = twin_model_main([inputs_img, inputs_height_img],
+                        '_twin', activation, conv_block, features, depth)
 
     # This block might need some editing
     outputs = layers.Conv2D(
@@ -372,65 +377,36 @@ def get_unet_twin_model(img_size, num_classes, activation, features, depth, heig
     return model
 
 
-def get_unet_model(img_size, num_classes, activation, features, depth):
+def get_unet_model(img_size, num_classes, activation, features, depth) -> Sequential:
     return get_model(img_size, num_classes, activation, simple_conv_block, features, depth)
 
 
-def get_resnet_model(img_size, num_classes, activation, features, depth):
+def get_resnet_model(img_size, num_classes, activation, features, depth) -> Sequential:
     return get_model(img_size, num_classes, activation, conv_res_block, features, depth)
 
 
-def get_bottleneck_model(img_size, num_classes, activation, features, depth):
+def get_bottleneck_model(img_size, num_classes, activation, features, depth) -> Sequential:
     return get_model(img_size, num_classes, activation, bottleneck_block, features, depth)
 
 
-def get_csp_model(img_size, num_classes, activation, features, depth):
+def get_csp_model(img_size, num_classes, activation, features, depth) -> Sequential:
     return get_model(img_size, num_classes, activation, CSPDense_block, features, depth)
 
 
-def get_bottleneck_cross_model(img_size, num_classes, activation, features, depth):
+def get_bottleneck_cross_model(img_size, num_classes, activation, features, depth) -> Sequential:
     return get_cross_model(img_size, num_classes, activation, bottleneck_block, features, depth)
 
 
-def get_bottleneck_cross_SPP_model(img_size, num_classes, activation, features, depth):
+def get_bottleneck_cross_SPP_model(img_size, num_classes, activation, features, depth) -> Sequential:
     return get_cross_model(img_size, num_classes, activation, bottleneck_block, features, depth, True)
 
 
-def gets_csp_cross_model(img_size, num_classes, activation, features, depth):
+def gets_csp_cross_model(img_size, num_classes, activation, features, depth) -> Sequential:
     return get_cross_model(img_size, num_classes, activation, CSPDense_block, features, depth)
 
 
-def gets_csp_cross_SPP_model(img_size, num_classes, activation, features, depth):
+def gets_csp_cross_SPP_model(img_size, num_classes, activation, features, depth) -> Sequential:
     return get_cross_model(img_size, num_classes, activation, CSPDense_block, features, depth, True)
-
-
-models = {
-    "unet": get_unet_model,
-    "resnet": get_resnet_model,
-    "bottleneck": get_bottleneck_model,
-    "bottleneck_cross": get_bottleneck_cross_model,
-    "bottleneck_cross_SPP": get_bottleneck_cross_SPP_model,
-    "CSP": get_csp_model,
-    "CSP_cross": gets_csp_cross_model,
-    "CSP_cross_SPP": gets_csp_cross_SPP_model,
-    "unet-twin": get_unet_twin_model  # Used for combination of image and heigh data
-}
-
-models_supporting_stacked_input = {
-    "unet",
-    "resnet",
-    "bottleneck",
-    "bottleneck_cross",
-    "bottleneck_cross_SPP",
-    "CSP",
-    "CSP_cross",
-    "CSP_cross_SPP",
-}
-models_supporting_tupple_input = {
-    "unet-twin",
-}
-
-# Mish Activation Function
 
 
 def mish(x):

@@ -42,9 +42,6 @@ def add_parsers():
     elif tool == "upload_files_in_dir":
         from kartai.tools import upload_files_in_dir
         upload_files_in_dir.add_parser(subparser)
-    elif tool == "full_analysis":
-        from kartai.tools import full_analysis
-        full_analysis.add_parser(subparser)
 
     # We return the parsed arguments, but the sub-command parsers
     # are responsible for adding a function hook to their command.

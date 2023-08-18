@@ -7,9 +7,11 @@ from pathlib import Path
 
 from azure import blobstorage
 from tensorflow import keras
+from tensorflow.keras import Sequential
 
 import env
 from kartai.dataset import dataGenerator
+from kartai.models.model import Model
 from kartai.utils.dataset_utils import validate_model_data_input
 from kartai.metrics.meanIoU import (Iou_point_5, Iou_point_6, Iou_point_7,
                                     Iou_point_8, Iou_point_9, IoU, IoU_fz)
@@ -19,12 +21,12 @@ from kartai.utils.train_utils import check_for_existing_model, get_dataset_dirs,
 ''' Start training with a selected model and dataset'''
 
 
-def train_model(created_datasets_dirs, input_generator_config, checkpoint_name, model_name, features, depth, activation_name, batch_size, epochs, optimizer, loss_function, checkpoint_to_finetune_from=False):
+def train_model(created_datasets_dirs: list[str], input_generator_config: dict, checkpoint_name: str, model: Model, features: int, depth: int, activation_name: str, batch_size: int, epochs: int, optimizer: str, loss_function: str, checkpoint_to_finetune_from: str = False):
     # Build model
     num_classes = 1
 
     input1_size, input2_size = get_input_dimensions(
-        input_generator_config, model_name)
+        input_generator_config, model)
 
     if activation_name and activation_name in segmentation_models.activations:
         activation = segmentation_models.activations[activation_name]
@@ -32,33 +34,33 @@ def train_model(created_datasets_dirs, input_generator_config, checkpoint_name, 
         print(f'Unknown activation "{activation_name}"', file=sys.stderr)
         sys.exit(1)
 
-    if model_name and model_name in segmentation_models.models:
-        model_fn = segmentation_models.models[model_name]
+    if model:
+        model_fn = Model.get_model_function(model)
     else:
-        print(f'Unknown model "{model_name}"', file=sys.stderr)
+        print(f'Unknown model "{model}"', file=sys.stderr)
         sys.exit(1)
 
-    model = model_fn(input1_size, num_classes, activation,
-                     features, depth, input2_size) if input2_size else model_fn(input1_size, num_classes, activation,
-                                                                                features, depth)
+    model: Sequential = model_fn(input1_size, num_classes, activation,
+                                 features, depth, input2_size) if input2_size else model_fn(input1_size, num_classes, activation,
+                                                                                            features, depth)
     model.summary()
 
     # Define optimizer:
-    opt = getOptimizer(
+    opt = get_optimizer(
         optimizer, is_finetuning=checkpoint_to_finetune_from != False)
 
     checkpoint_path = env.get_env_variable('trained_models_directory')
     log_path = 'tensorflow_log'
 
     # Load weights from previously trained model
-    if(checkpoint_to_finetune_from):
+    if (checkpoint_to_finetune_from):
         print(
             f'\n --- Loading weights from model {checkpoint_to_finetune_from} to finetune from --- \n')
         model.load_weights(os.path.join(
             checkpoint_path, checkpoint_to_finetune_from+'.h5'))
 
     # Define loss-function:
-    loss = getLoss(loss_function)
+    loss = get_loss(loss_function)
 
     # Configure the model for training:
     model.compile(optimizer=opt, loss=loss,
@@ -90,9 +92,6 @@ def train_model(created_datasets_dirs, input_generator_config, checkpoint_name, 
     reduceLR_loss_cb = keras.callbacks.ReduceLROnPlateau(
         monitor="val_IoU", factor=0.2, patience=6, verbose=0, min_delta=0)
 
-    if(epochs == None):
-        epochs = 100  # Max number of epochs
-
     callbacks = [
         checkpoint_iou_cb,
         reduceLR_loss_cb,
@@ -113,15 +112,15 @@ def train_model(created_datasets_dirs, input_generator_config, checkpoint_name, 
     return train_history
 
 
-def get_input_dimensions(input_generator_config, model_name):
+def get_input_dimensions(input_generator_config, model: Model):
     input_stack = input_generator_config["model_input_stack"]
     input_tuple = input_generator_config["model_input_tuple"]
 
     validate_model_data_input(input_generator_config,
-                              model_name, segmentation_models)
+                              model)
 
     model_input = input_stack if len(input_stack) > 0 else input_tuple
-    if(len(input_tuple) > 0):
+    if (len(input_tuple) > 0):
         input1 = (model_input[0]["dimensions"][0], model_input[0]
                   ["dimensions"][1], model_input[0]["dimensions"][2])
         input2 = (model_input[1]["dimensions"][0], model_input[1]
@@ -195,7 +194,7 @@ def create_metadata_file(dataset_dirs, datasets_to_train_on, datagenerator_confi
     print(json.dumps(meta,  indent=ident))
 
 
-def getOptimizer(optimizer, is_finetuning):
+def get_optimizer(optimizer, is_finetuning):
 
     learning_rate = 0.0005 if is_finetuning else 0.001
 
@@ -211,14 +210,14 @@ def getOptimizer(optimizer, is_finetuning):
         'Ftrl': keras.optimizers.Ftrl(learning_rate=learning_rate),
     }
 
-    if(optimizer not in optimizers.keys()):
+    if (optimizer not in optimizers.keys()):
         print(
             f'Optimizer {optimizer} is not available. Choose from: ' + optimizers.keys())
 
     return optimizers[optimizer]
 
 
-def getLoss(loss_function):
+def get_loss(loss_function: str):
     if loss_function == 'binary_crossentropy':
         loss_function = 'binary_crossentropy'
     elif loss_function == 'focal_loss':
@@ -250,7 +249,7 @@ def add_parser(subparser):
     parser.add_argument('-e', '--epochs', type=int,
                         help='Number of epochs', default=100)
     parser.add_argument('-m', '--model', type=str,
-                        help='The wanted neural net model', choices=segmentation_models.models, required=True)
+                        help='The wanted neural net model', choices=Model.get_values(), required=True)
     parser.add_argument('-f', '--features', type=int,
                         help='Number of features in first layers', default=32)
     parser.add_argument('-d', '--depth', type=int,
@@ -285,7 +284,7 @@ def main(args):
           args.config, args.save_model, train_args, args.checkpoint_to_finetune)
 
 
-def train(checkpoint_name, dataset_name, input_generator_config_path, save_model, train_args, checkpoint_to_finetune):
+def train(checkpoint_name: str, dataset_name: str, input_generator_config_path: str, save_model: bool, train_args: dict, checkpoint_to_finetune: str):
 
     check_for_existing_model(checkpoint_name)
 
@@ -294,7 +293,9 @@ def train(checkpoint_name, dataset_name, input_generator_config_path, save_model
     with open(input_generator_config_path, encoding="utf8") as config:
         input_generator_config = json.load(config)
 
-    train_history = train_model(created_datasets_dirs, input_generator_config, checkpoint_name, train_args['model'],
+    model = Model.from_str(train_args["model"])
+
+    train_history = train_model(created_datasets_dirs, input_generator_config, checkpoint_name, model,
                                 train_args['features'], train_args['depth'], train_args['activation'], train_args['batch_size'], train_args['epochs'], train_args['optimizer'], train_args['loss'], checkpoint_to_finetune_from=checkpoint_to_finetune)
 
     create_metadata_file(created_datasets_dirs, dataset_name, Path(input_generator_config_path).stem, checkpoint_name, train_args['model'], train_args['features'], train_args['depth'], train_args[

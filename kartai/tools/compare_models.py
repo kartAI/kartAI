@@ -1,8 +1,7 @@
 
 import argparse
 import os
-
-from kartai.models import segmentation_models
+from kartai.models.model import Model
 
 
 def test_all_models_with_stacked_data(dataset, name_suffix=None):
@@ -10,14 +9,14 @@ def test_all_models_with_stacked_data(dataset, name_suffix=None):
     activations = ["mish", "swish", "relu"]
     depths = [3, 4, 5, 6]
 
-    models = segmentation_models.models
+    models = Model.get_values()
     # Remove twin model which is not compatible with the current data
     del models["unet-twin"]
 
     for model_name in models:
         for activation in activations:
             for depth in depths:
-                if(depth > 4):
+                if (depth > 4):
                     features = 8
                 else:
                     features = 16
@@ -44,7 +43,7 @@ def test_several_datasets(dataset, name_suffix=None):
     for model_name in models:
         for activation in activations:
             for depth in depths:
-                if(depth > 4):
+                if (depth > 4):
                     features = 8
                 else:
                     features = 16

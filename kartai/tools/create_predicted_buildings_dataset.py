@@ -1,8 +1,10 @@
-import os
-import env
 import argparse
-from kartai.dataset.create_building_dataset import create_building_dataset
+import time
+from kartai.dataset.create_building_dataset import produce_vector_buildings, run_ml_predictions
+from kartai.utils.config_utils import read_config
+from kartai.utils.crs_utils import get_projection_from_config_path
 from kartai.utils.geometry_utils import parse_region_arg
+from kartai.utils.prediction_utils import get_raster_predictions_dir, get_vector_predictions_dir
 from kartai.utils.train_utils import get_existing_model_names
 
 
@@ -29,16 +31,10 @@ def add_parser(subparser):
     parser.add_argument("-mb", "--max_mosaic_batch_size", type=int,
                         help="Max batch size for creating mosaic of the predictions",
                         default=200)
-
     parser.add_argument("-c", "--config_path", type=str,
-                        help="Data configuration file", required=True)
-
-    parser.add_argument("--extra", "--create_extra_datasets", type=str, required=False, default='false',
-                        help="Whether or not to create extra datasets for tilbygg, frittliggende and existing buildings as well")
-
-    parser.add_argument("-p", "--skip_to_postprocess", type=str, required=False, default='false',
-                        help="Whether to skip directly to postprocessing, and not look for needed downloaded data. Typically used if you have already run production of dataset for same area, but with different model")
-
+                        help="Data configuration file", default="config/dataset/bygg-no-rules.json")
+    parser.add_argument("-mp", "--num_load_processes", type=int, default=1,
+                        help="Number of parallell processes to run when downloading training data")
     parser.add_argument("-s", "--save_to", type=str, choices=['local', 'azure'], default='azure',
                         help="Whether to save the resulting vector data to azure or locally")
 
@@ -49,11 +45,21 @@ def main(args):
 
     geom = parse_region_arg(args.region)
 
-    only_raw_predictions = True if args.extra == 'false' or args.only_raw_predictions == None else False
-    skip_to_postprocess = False if args.skip_to_postprocess == 'false' or args.skip_to_postprocess == None else True
+    config = read_config(args.config_path)
 
-    print('only_raw_predictions', only_raw_predictions)
-    print('skip_to_postprocess', skip_to_postprocess)
+    projection = get_projection_from_config_path(args.config_path)
 
-    create_building_dataset(geom, args.checkpoint_name, args.region_name,
-                            args.config_path, only_raw_predictions=only_raw_predictions, skip_to_postprocess=skip_to_postprocess, max_mosaic_batch_size=args.max_mosaic_batch_size, save_to=args.save_to)
+    run_ml_predictions(args.checkpoint_name, args.region_name, projection,
+                       config=config, geom=geom, num_processes=args.num_load_processes)
+
+    time.sleep(2)  # Wait for complete saving to disk
+
+    print('Starting postprocess')
+
+    vector_output_dir = get_vector_predictions_dir(
+        args.region_name, args.checkpoint_name)
+    raster_predictions_path = get_raster_predictions_dir(
+        args.region_name, args.checkpoint_name)
+
+    produce_vector_buildings(
+        vector_output_dir, raster_predictions_path, config, args.max_mosaic_batch_size, f"{args.region_name}_{args.checkpoint_name}", save_to="local")
