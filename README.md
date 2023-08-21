@@ -42,13 +42,13 @@ In order to create the training data for building segmentation you need access t
 
 ### Conda environment
 
-To make sure you have correct versions of all packages we recommend using anaconda.
+To make sure you have correct versions of all packages we recommend using anaconda and their virtual environments. We use python 3.9.
 
-Create a conda environment with python 3.9 by running command below. Replace "env-name" with desired name for the environment
+This repo has an `env.yml` file to create the environment from (NB! This does not include `pandasgui`).
 
-`conda create -n "env-name" python=3.9`
+Run `conda env create -f env.yml` in order to install using the env file (remember to use python 3.9), and `conda activate kartai` to activate the environment.
 
-`conda activate "env-name"`
+Alternatively if you want to install all dependencies manually you can run `conda create -n env-name python=3.9` and then install dependencies as you want.
 
 ### Running scripts
 
@@ -242,7 +242,6 @@ If you instead want the skip this lazy loading, and download the data immediatel
 
 ### Create Training Data Script
 
-
 `create_training_data`
 
 Arguments:
@@ -346,7 +345,7 @@ Example:
 
 Single dataset:
 
-`./kai train -dn {dataset_name} -cn {checkpoint_name} -c{config/ml_input_generator/ortofoto.json} -m {model_name} -a {activation} -bs 4 -f 16 -e {epochs}`
+`./kai train -dn {dataset_name} -cn {checkpoint_name} -c {config/ml_input_generator/ortofoto.json} -m {model_name} -a {activation} -bs 4 -f 16 -e {epochs}`
 
 Several datasets:
 
@@ -370,16 +369,15 @@ In order to test lots of models and hyperparameters we can run the compare_model
 
 Unix:
 
-`./kai compare_models -dn {dataset_name}`
+`./kai compare_models`
 
 Windows:
 
-`kai.bat compare_models -dn {dataset_name}`
+`kai.bat compare_models`
 
 ## Evaluating the models
 
 We have created an automatic process for generating a result table that gives an overview of all the trained models performance.
-
 
 ### Result table
 
