@@ -279,7 +279,8 @@ def produce_vector_buildings(output_dir: str, raster_dir: str, config: dict, max
     print('output_dir', output_dir)
     predictions_path = []
     for filename in raster_filenames:
-        predictions_path.append(os.path.join(raster_dir, filename))
+        if filename != "rasters_virtual.vrt":
+            predictions_path.append(os.path.join(raster_dir, filename))
 
     print('num predictions', len(predictions_path))
 
