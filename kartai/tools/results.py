@@ -27,7 +27,7 @@ def add_parser(subparser):
         help="show results table",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument('-test_region', type=str, choices=[ResultRegion.KRISTIANSAND, ResultRegion.BALSFJORD],
+    parser.add_argument('-test_region', type=str, choices=ResultRegion.get_values(),
                         help='A test region to run prediction on', required=False)
     parser.add_argument('-preview', type=bool,
                         help='preview results so far', required=False, default=False)
@@ -294,6 +294,7 @@ def create_performance_metadata_file(region_name: ResultRegion, IoU: float, mode
         "IoU": IoU,
         "Sanne detekterte bygnigner": true_buildings_count,
         "Falske detekterte bygninger": false_count,
+        "Prosentandel detektert bygg": (true_buildings_count / (true_buildings_count + all_missing_count))*100,
         "Manglende detekterte bygninger": all_missing_count,
         "Sanne detekterte 'nye' bygninger": true_new_buildings_count,
         "training_params": {

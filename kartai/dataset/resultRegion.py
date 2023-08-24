@@ -12,3 +12,7 @@ class ResultRegion(Enum):
         if label in ('balsfjord'):
             return ResultRegion.BALSFJORD
         raise NotImplementedError
+
+    @staticmethod
+    def get_values():
+        return [r.value for r in ResultRegion]
