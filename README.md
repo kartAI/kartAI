@@ -250,7 +250,7 @@ Arguments:
 | -------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | -n       | what to name the dataset                                                                                                                                                                         |
 | -c       | path to config file                                                                                                                                                                              |
-| -eager       | Option to download created data immediately, and not just the reference to the data (which is default behaviour, where data is downloaded the first time the data is used, i.e during training)                                                                                                                                                                              |
+| -eager   | Option to download created data immediately, and not just the reference to the data (which is default behaviour, where data is downloaded the first time the data is used, i.e during training)  |
 | --region | Polygon or multipolygon describing data area with coordinates in same system as defined in config (i.e EPSG:25832), WKT or geojson (geometry) format, directly in a text string or as a filename |
 | --x_min  | x_min for bbox, alternative to --region                                                                                                                                                          |
 | --y_min  | y_min for bbox, alternative to --region                                                                                                                                                          |
@@ -329,7 +329,7 @@ Arguments:
 | -------- | :---------------------------------------------------------------------------------------------- | :------- | ----------------------------------------- |
 | -dn      | name of the dataset to train with (can pass several -dn arguments to train on several datasets) | Yes      |
 | -cn      | name of result model (checkpoint name)                                                          | Yes      |
-| -m       | name of model to train (see [the list of implemented models](#models))                                                                          | Yes      |
+| -m       | name of model to train (see [the list of implemented models](#models))                          | Yes      |
 | -c       | Path for data generator config file                                                             | No       | `config/ml_input_generator/ortofoto.json` |
 | -s       | Save trained model to azure                                                                     | No       | True                                      |
 | -f       | number of features                                                                              | No       | 32                                        |
@@ -389,10 +389,10 @@ By passing a test_region we will run a prediction on the given region, and perfo
 
 Arguments:
 
-| Argument | Description |Required | Type | Default |
-| -------- | :-------------------------------------------- | -------- |-------------------- | -------- |
-| -test_region     | Run test on a region, and get counts of detected buildings, missing buildings and false buildings | No | "ksand" or "balsfjord" | None |
-| -download_models     | Downloading all trained models from azure | No | bool | False
+| Argument         | Description                                                                                       | Required | Type                   | Default |
+| ---------------- | :------------------------------------------------------------------------------------------------ | -------- | ---------------------- | ------- |
+| -test_region     | Run test on a region, and get counts of detected buildings, missing buildings and false buildings | No       | "ksand" or "balsfjord" | None    |
+| -download_models | Downloading all trained models from azure                                                         | No       | bool                   | False   |
 
 Unix:
 
@@ -442,25 +442,25 @@ This module will:
 
 Arguments:
 
-| Argument |Description  |  type |  required | default|                                                                                                                                                                                     |
-| -------- | :--------| -----| -----| -----| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| -rn --region_name      | region name, often set to the same as the name of the passed region. This name will match the result directory. | string | Yes                                                                                                                                                                        |
-| -cn --checkpoint_name     | name of the trained model used for prediction   | string | Yes
-| --region | Polygon or MultiPolygon describing data area with coordinates in same system as defined in config (i.e EPSG:25832), WKT or geojson (geometry) format, directly in a text string or as a filename | WKT, jsontext, or filename | Yes |
-| -c      |Data config path | string | Yes
-| -mb      |Max batch size for creating mosaic of the predictions | int | No | 200
-| -p      | Whether to skip directly to postprocessing, and not look for needed downloaded data. Typically used if you have already run production of dataset for same area, but with different model | bool | No | False
-| -s      | Whether to save resulting vectordata to azure or locally. Options as 'local' or 'azure' | string | No | azure
+| Argument              | Description                                                                                                                                                                                      | type                       | required | default |     |
+| --------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | -------- | ------- | --- |
+| -rn --region_name     | region name, often set to the same as the name of the passed region. This name will match the result directory.                                                                                  | string                     | Yes      |
+| -cn --checkpoint_name | name of the trained model used for prediction                                                                                                                                                    | string                     | Yes      |
+| --region              | Polygon or MultiPolygon describing data area with coordinates in same system as defined in config (i.e EPSG:25832), WKT or geojson (geometry) format, directly in a text string or as a filename | WKT, jsontext, or filename | Yes      |
+| -c                    | Data config path                                                                                                                                                                                 | string                     | Yes      |
+| -mb                   | Max batch size for creating mosaic of the predictions                                                                                                                                            | int                        | No       | 200     |
+| -p                    | Whether to skip directly to postprocessing, and not look for needed downloaded data. Typically used if you have already run production of dataset for same area, but with different model        | bool                       | No       | False   |
+| -s                    | Whether to save resulting vectordata to azure or locally. Options as 'local' or 'azure'                                                                                                          | string                     | No       | azure   |
 
 Example:
 
 Unix:
 
-`./kai create_predicted_buildings_dataset -rn karmoy -cn unet_model --region training_data/karmoy.json -c config/dataset/bygg-no-rules.json`
+`./kai create_predicted_features_dataset -rn karmoy -cn unet_model --region training_data/karmoy.json -c config/dataset/bygg-no-rules.json`
 
 Windows:
 
-`kai.bat create_predicted_buildings_dataset -rn karmoy -cn unet_model --region training_data/karmoy.json -c config/dataset/bygg-no-rules.json`
+`kai.bat create_predicted_features_dataset -rn karmoy -cn unet_model --region training_data/karmoy.json -c config/dataset/bygg-no-rules.json`
 
 ### Create contour vectordata
 
@@ -475,15 +475,15 @@ The script will download to wanted model from azure if it is not already downloa
 
 Arguments:
 
-| Argument |Description  |  type |  required | default|                                                                                                                                                                                     |
-| -------- | :--------| -----| -----| -----| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| -rn --region_name      | region name, often set to the same as the name of the passed region. This name will match the result directory. | string | Yes                                                                                                                                                                        |
-| -cn --checkpoint_name     | name of the trained model used for prediction   | string | Yes
-| --region | Polygon or MultiPolygon describing data area with coordinates in same system as defined in config (i.e EPSG:25832), WKT or geojson (geometry) format, directly in a text string or as a filename | WKT, jsontext, or filename | Yes |
-| -c      |Data config path | string | No |"config/dataset/bygg-no-rules.json"
-| -mb      |Max batch size when running predictions | int | No | 200
-| -s      | Whether to save resulting vectordata to azure or locally. Options as 'local' or 'azure' | string | No | azure
-| -l      | The confidence levels to create contours for. | string - comma seperated list of float numbers|No | "0.3, 0.4, 0.5, 0.6, 0.8, 0.9, 1"
+| Argument              | Description                                                                                                                                                                                      | type                                           | required | default                             |     |
+| --------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | -------- | ----------------------------------- | --- |
+| -rn --region_name     | region name, often set to the same as the name of the passed region. This name will match the result directory.                                                                                  | string                                         | Yes      |
+| -cn --checkpoint_name | name of the trained model used for prediction                                                                                                                                                    | string                                         | Yes      |
+| --region              | Polygon or MultiPolygon describing data area with coordinates in same system as defined in config (i.e EPSG:25832), WKT or geojson (geometry) format, directly in a text string or as a filename | WKT, jsontext, or filename                     | Yes      |
+| -c                    | Data config path                                                                                                                                                                                 | string                                         | No       | "config/dataset/bygg-no-rules.json" |
+| -mb                   | Max batch size when running predictions                                                                                                                                                          | int                                            | No       | 200                                 |
+| -s                    | Whether to save resulting vectordata to azure or locally. Options as 'local' or 'azure'                                                                                                          | string                                         | No       | azure                               |
+| -l                    | The confidence levels to create contours for.                                                                                                                                                    | string - comma seperated list of float numbers | No       | "0.3, 0.4, 0.5, 0.6, 0.8, 0.9, 1"   |
 
 Example:
 

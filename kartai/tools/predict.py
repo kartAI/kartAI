@@ -75,14 +75,14 @@ def _save_outputs(output_dir: str, predictions, input_paths: list[dict], input_l
 
     if save_prediction_images:
         file_list, _ = save_predicted_images_as_geotiff(predictions, input_paths,
-                                                     output_dir, "_val_predict.tif", projection)
+                                                        output_dir, "_val_predict.tif", projection)
 
         gdal.BuildVRT(os.path.join(output_dir,
                       "val_predict.vrt"), file_list, addAlpha=True)
 
     if save_diff_images:
         file_list, _ = save_predicted_images_as_geotiff(predictions - input_labels,
-                                                     input_paths, output_dir, "_val_diff.tif", projection)
+                                                        input_paths, output_dir, "_val_diff.tif", projection)
 
         gdal.BuildVRT(os.path.join(output_dir,
                       "val_diff.vrt"), file_list, addAlpha=True)
@@ -98,7 +98,8 @@ def save_predicted_images_as_geotiff(np_predictions, data_samples: list[dict], o
     for i in range(len(np_predictions)):
         input_img_name = Path(data_samples[i]['image'].file_path).stem
 
-        prediction_output_dir = input_img_name + ".tif" if suffix else input_img_name + "_prediction.tif"
+        prediction_output_dir = input_img_name + \
+            ".tif" if suffix else input_img_name + "_prediction.tif"
         prediction_output_dir = os.path.join(output_dir, prediction_output_dir)
         file_list.append(os.path.abspath(prediction_output_dir))
         ds = gdal.GetDriverByName('GTiff').Create(prediction_output_dir,

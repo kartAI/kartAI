@@ -13,7 +13,7 @@ def add_parser(subparser):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     building_dataset_contianer = env.get_env_variable(
-        "building_datasets_container_name")
+        "results_datasets_container_name")
 
     parser.add_argument('-p', '--path', type=str,
                         help='Path to directory', required=True)

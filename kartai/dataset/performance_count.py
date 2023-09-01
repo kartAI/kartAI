@@ -1,7 +1,7 @@
 import os
 import geopandas as gp
 import pandas
-from kartai.dataset.create_building_dataset import add_confidence_values, clip_to_polygon, get_valid_geoms
+from kartai.dataset.create_polygon_dataset import add_confidence_values, clip_to_polygon, get_valid_geoms
 from kartai.dataset.resultRegion import ResultRegion
 from kartai.dataset.test_area_utils import get_adjusted_labels_dirs
 

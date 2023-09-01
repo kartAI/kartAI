@@ -1,6 +1,6 @@
 
 import argparse
-from kartai.dataset.create_building_dataset import run_ml_predictions
+from kartai.dataset.create_polygon_dataset import run_ml_predictions
 from kartai.tools.predict import create_contour_result
 from kartai.utils.config_utils import read_config
 from kartai.utils.crs_utils import get_projection_from_config_path
@@ -32,9 +32,9 @@ def add_parser(subparser):
     parser.add_argument('-rn', "--region_name", type=str,
                         help="Name of region that is analyzed. Used to prefix output folder in azure",
                         required=True)
-    parser.add_argument("-mb", "--max_batch_size", type=int,
-                        help="Max batch size for creating raster images",
-                        default=200)
+    parser.add_argument("-mb", "--batch_size", type=int,
+                        help="Batch size for creating raster images",
+                        default=8)
     parser.add_argument("-mp", "--num_load_processes", type=int, default=1,
                         help="Number of parallell processes to run when downloading training data")
     parser.add_argument("-c", "--config_path", type=str,
@@ -54,7 +54,7 @@ def main(args):
     config = read_config(args.config_path)
 
     run_ml_predictions(args.input_model_name, args.region_name, projection, args.input_model_subfolder,
-                       config=config, geom=geom, batch_size=args.max_batch_size, skip_data_fetching=False,
+                       config=config, geom=geom, batch_size=args.batch_size, skip_data_fetching=False,
                        save_to="local", num_processes=args.num_load_processes)
 
     raster_output_dir = get_raster_predictions_dir(
