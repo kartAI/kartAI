@@ -65,55 +65,46 @@ m hoyde
 
 ./kai create_training_data -n ksand_ndh_prosjektomrade_not_adjusted_test_set -c config/dataset/bygg_ndh_no_rules_all_test.json --region training_data/regions/prosjektomr_test.json
 
-
 ./kai create_training_data -n grimstad_municipality -c config/dataset/bygg.json --region training_data/regions/grimstad_municipality.json
 ./kai create_training_data -n grimstad_municipality -c config/dataset/bygg-no-rules.json --region training_data/regions/grimstad_municipality.json
 
-
-
-
-
-
 #### Create predicted building dataset:
 
-./kai create_predicted_buildings_dataset -n ksand_test --region training_data/regions/small_test_region.json -cn CSP_d4_mish -c config/dataset/bygg-no-rules.json
-./kai create_predicted_buildings_dataset -n karmoy_nrk_analyse --region training_data/regions/small_test_region.json -cn CSP_d4_mish -c config/dataset/bygg-no-rules.json
-./kai create_predicted_buildings_dataset -n karmoy_nrk_analyse --region training_data/regions/karmoy.json -cn CSP_d4_mish -c config/dataset/bygg-no-rules.json
-./kai create_predicted_buildings_dataset -n karmoy_nrk_analyse_finetuned --region training_data/regions/karmoy.json -cn CSP_d4_mish_finetuned_karmoy_finetuned_50e -c config/dataset/bygg-no-rules.json
+./kai create_predicted_features_dataset -n ksand_test --region training_data/regions/small_test_region.json -cn CSP_d4_mish -c config/dataset/bygg-no-rules.json
+./kai create_predicted_features_dataset -n karmoy_nrk_analyse --region training_data/regions/small_test_region.json -cn CSP_d4_mish -c config/dataset/bygg-no-rules.json
+./kai create_predicted_features_dataset -n karmoy_nrk_analyse --region training_data/regions/karmoy.json -cn CSP_d4_mish -c config/dataset/bygg-no-rules.json
+./kai create_predicted_features_dataset -n karmoy_nrk_analyse_finetuned --region training_data/regions/karmoy.json -cn CSP_d4_mish_finetuned_karmoy_finetuned_50e -c config/dataset/bygg-no-rules.json
 
-./kai create_predicted_buildings_dataset -n building_area --region training_data/regions/validation_region.json -cn resnet_swish_building_area_d5 -c config/dataset/bygg-no-rules.json
+./kai create_predicted_features_dataset -n building_area --region training_data/regions/validation_region.json -cn resnet_swish_building_area_d5 -c config/dataset/bygg-no-rules.json
 
 Height model:
-./kai create_predicted_buildings_dataset -n ksand_hoyde_model --region training_data/regions/prosjektomr_test.json -cn unet_height_model -c config/dataset/bygg_ndh.json
+./kai create_predicted_features_dataset -n ksand_hoyde_model --region training_data/regions/prosjektomr_test.json -cn unet_height_model -c config/dataset/bygg_ndh.json
 
 GRIMSTAD:
-./kai create_predicted_buildings_dataset -n grimstad_partly --region training_data/regions/grimstad.geojson -cn CSP_building_area_d3_swish -c config/dataset/bygg-no-rules.json
+./kai create_predicted_features_dataset -n grimstad_partly --region training_data/regions/grimstad.geojson -cn CSP_building_area_d3_swish -c config/dataset/bygg-no-rules.json
 
+./kai create_predicted_features_dataset -n grimstad_partly --region training_data/regions/grimstad.geojson -cn extra_large_building_area_unet -c config/dataset/bygg-no-rules.json
 
-./kai create_predicted_buildings_dataset -n grimstad_partly --region training_data/regions/grimstad.geojson -cn extra_large_building_area_unet -c config/dataset/bygg-no-rules.json
-
-./kai create_predicted_buildings_dataset -n grimstad_partly --region training_data/regions/grimstad.geojson -cn finetuned_grimstad_resnet_mish_sorlandet_data_teacher_5_v2 -c config/dataset/bygg-no-rules.json
+./kai create_predicted_features_dataset -n grimstad_partly --region training_data/regions/grimstad.geojson -cn finetuned_grimstad_resnet_mish_sorlandet_data_teacher_5_v2 -c config/dataset/bygg-no-rules.json
 
 Best checkpoint:
 unet_large_building_area_d4_mish_focal_ndh
 
-./kai create_predicted_buildings_dataset -n ksand_hoyde_model --region training_data/regions/prosjektomr_test.json -cn unet_large_building_area_d4_mish_focal_ndh -c config/dataset/bygg-ndh-no-rules.json
+./kai create_predicted_features_dataset -n ksand_hoyde_model --region training_data/regions/prosjektomr_test.json -cn unet_large_building_area_d4_mish_focal_ndh -c config/dataset/bygg-ndh-no-rules.json
 
-./kai create_predicted_buildings_dataset -n CSP_large_building_area_d4_mish --region training_data/regions/prosjektomr_test.json -cn CSP_large_building_area_d4_mish -c config/dataset/bygg-no-rules.json
+./kai create_predicted_features_dataset -n CSP_large_building_area_d4_mish --region training_data/regions/prosjektomr_test.json -cn CSP_large_building_area_d4_mish -c config/dataset/bygg-no-rules.json
 
-./kai create_predicted_buildings_dataset -n grimstad_xl_resnet_mish --region training_data/regions/grimstad.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json
+./kai create_predicted_features_dataset -n grimstad_xl_resnet_mish --region training_data/regions/grimstad.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json
 
-./kai create_predicted_buildings_dataset -n arendal_xl_resnet_mish --region training_data/regions/ArendalBorderCropped.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json
+./kai create_predicted_features_dataset -n arendal_xl_resnet_mish --region training_data/regions/ArendalBorderCropped.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json
 
+./kai create_predicted_features_dataset -n ringebu_xl_resnet_mish --region training_data/regions/ringebu.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -raw true
 
-./kai create_predicted_buildings_dataset -n ringebu_xl_resnet_mish --region training_data/regions/ringebu.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -raw true
-
-./kai create_predicted_buildings_dataset -n arendal_xl_csp_mish --region training_data/regions/ArendalBorderCropped.geojson -cn xl_csp_mish -c config/dataset/bygg-no-rules.json -p True -s azure
-
+./kai create_predicted_features_dataset -n arendal_xl_csp_mish --region training_data/regions/ArendalBorderCropped.geojson -cn xl_csp_mish -c config/dataset/bygg-no-rules.json -p True -s azure
 
 TESTING:
 
-./kai create_predicted_buildings_dataset -n arendal_xl_resnet_mish --region training_data/regions/ArendalBorderCropped.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -p true -rn arendal
+./kai create_predicted_features_dataset -n arendal_xl_resnet_mish --region training_data/regions/ArendalBorderCropped.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -p true -rn arendal
 
 #### Train:
 
@@ -145,24 +136,19 @@ Finetune on ksand:
 
 ./kai train -dn kristiansand_manually_adjusted -m resnet -cn finetuned_resnet_mish_sorlandet_data_teacher_1 -ft resnet_mish_sorlandet_data_teacher_1 -b 8 -d 4 -f 16 -a mish -c config/ml_input_generator/ortofoto.json
 
-
 ./kai train -dn large_building_area -m resnet -cn resnet_testrun -b 8 -d 4 -f 16 -a mish -c config/ml_input_generator/ortofoto.json
 
-./kai train -dn large_building_area_ndh -m resnet -cn finetune_large_ndh_xl_resnet_mish -ft xl_resnet_mish  -b 8 -d 4 -f 16 -a mish -c config/ml_input_generator/height_orto_stack.json
-
+./kai train -dn large_building_area_ndh -m resnet -cn finetune_large_ndh_xl_resnet_mish -ft xl_resnet_mish -b 8 -d 4 -f 16 -a mish -c config/ml_input_generator/height_orto_stack.json
 
 ./kai train -dn extra_large_building_area -m resnet -cn xl_resnet_mish -b 8 -d 4 -f 16 -a mish -c config/ml_input_generator/ortofoto.json
 
 ./kai train -dn extra_large_building_area -m CSP -cn xl_csp_mish -b 6 -d 4 -f 16 -a mish -c config/ml_input_generator/ortofoto.json
 
-
 ./kai train -dn extra_large_building_area -m CSP_cross_SPP -cn xl_csp_cross_mish -b 4 -d 4 -f 8 -a mish -c config/ml_input_generator/ortofoto.json
 
 ./kai train -dn low_res_small_area -m resnet -b 4 -d 4 -f 8 -a mish -c config/ml_input_generator/ortofoto.json
 
-
 **Finetune on grimstad**
-
 
 ./kai train -dn grimstad_municipality -m resnet -cn finetuned_grimstad_resnet_mish_sorlandet_data_teacher_5 -ft resnet_mish_sorlandet_data_teacher_5 -b 8 -d 4 -f 16 -a mish -c config/ml_input_generator/ortofoto.json
 
@@ -194,7 +180,6 @@ Existing datasets:
 
 - ksand_with_hoyde
 
-
 Demo:
 
 ./kai create_training_data -n small_test_area -c config/dataset/bygg.json --region training_data/regions/small_building_region.json
@@ -202,11 +187,9 @@ Demo:
 
 ./kai train -dn ksand_prosjektomrade_not_adjusted_test_set -m unet -cn unet_ksand_prosjektomrade_not_adjusted_test_set -c config/ml_input_generator/ortofoto.json
 
-
 ./kai create_training_data -n low_res_small_area -c config/dataset/bygg-no-rules.json --region training_data/regions/low_res_small_area.geojson
 
 ./kai train -dn low_res_small_area -m unet -cn test_low_res_small_area -c config/ml_input_generator/ortofoto.json
-
 
 Nedlasting
 ./kai download_models
@@ -215,33 +198,25 @@ Result table:
 
 ./kai results
 
-
 Produce vector data:
 
-./kai create_predicted_buildings_dataset -n arendal_xl_resnet_mish --region training_data/regions/ArendalBorderCropped.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn arendal
+./kai create_predicted_features_dataset -n arendal_xl_resnet_mish --region training_data/regions/ArendalBorderCropped.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn arendal
 
-./kai create_predicted_buildings_dataset -n test-region_xl_resnet_mish_2 --region training_data/regions/small_test_region.json -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn small-test-region
+./kai create_predicted_features_dataset -n test-region_xl_resnet_mish_2 --region training_data/regions/small_test_region.json -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn small-test-region
 
+./kai create_predicted_features_dataset -n stream-resnet-norway --region training_data/regions/small_test_region.json -cn stream-resnet-norway -c config/dataset/bygg-no-rules.json -rn small_test_region
 
-./kai create_predicted_buildings_dataset -n stream-resnet-norway --region  training_data/regions/small_test_region.json -cn stream-resnet-norway -c config/dataset/bygg-no-rules.json -rn small_test_region
+./kai create_predicted_features_dataset -n krs-stream-resnet-norway --region training_data/regions/KristiansandBorderCropped.json -cn stream-resnet-norway -c config/dataset/bygg-no-rules.json -rn kristiansand
 
+./kai create_predicted_features_dataset -n 4-stream-resnet-norway --region training_data/regions/small_test_region.json -cn 4-multiplex-resnet-norway -c config/dataset/bygg-no-rules.json -rn kristiansand
 
-./kai create_predicted_buildings_dataset -n krs-stream-resnet-norway --region  training_data/regions/KristiansandBorderCropped.json -cn stream-resnet-norway -c config/dataset/bygg-no-rules.json -rn kristiansand
+./kai create_predicted_features_dataset -n 4-2-stream-resnet-norway --region training_data/regions/small_test_region.json -cn 4-2-multiplex-resnet-norway -c config/dataset/bygg-no-rules.json -rn kristiansand
 
+./kai create_predicted_features_dataset -n 7-stream-resnet-norway --region training_data/regions/small_test_region.json -cn 7-multiplex-resnet-norway -c config/dataset/bygg-no-rules.json -rn kristiansand
 
-./kai create_predicted_buildings_dataset -n 4-stream-resnet-norway --region  training_data/regions/small_test_region.json -cn 4-multiplex-resnet-norway -c config/dataset/bygg-no-rules.json -rn kristiansand
+#Kristiansand raster test:
 
-
-./kai create_predicted_buildings_dataset -n 4-2-stream-resnet-norway --region  training_data/regions/small_test_region.json -cn 4-2-multiplex-resnet-norway -c config/dataset/bygg-no-rules.json -rn kristiansand
-
-./kai create_predicted_buildings_dataset -n 7-stream-resnet-norway --region  training_data/regions/small_test_region.json -cn 7-multiplex-resnet-norway -c config/dataset/bygg-no-rules.json -rn kristiansand
-
-
-
-#Kristiansand raster test: 
-
-./kai create_predicted_buildings_dataset --region training_data/regions/KristiansandBorderCropped.json -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn kristiansand
-
+./kai create_predicted_features_dataset --region training_data/regions/KristiansandBorderCropped.json -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn kristiansand
 
 #Contour dataset:
 
@@ -249,22 +224,16 @@ Produce vector data:
 
 ./kai create_predicted_buildings_contour --region training_data/regions/verdal-sentrum.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn verdal_sentrum
 
-
 ./kai create_predicted_buildings_contour --region training_data/regions/verdal_small_area.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn verdal_small_area -mp 10
 
 ./kai create_predicted_buildings_contour --region training_data/regions/balsfjord_small_area.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn balsfjord_small_area -mp 10
 
-
 ./kai create_predicted_buildings_contour --region training_data/regions/rennebu_municipality.geojson -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn rennebu -mp 10
-
 
 ./kai create_predicted_buildings_contour --region training_data/regions/rennebu_municipality.geojson -cn 10-multiplex-mish-resnet-norway -c config/dataset/bygg-no-rules.json -rn rennebu -mp 10
 
 ./kai create_predicted_buildings_contour --region training_data/regions/rennebu_municipality.geojson -cn multiplex-mish-f16-resnet-norway -c config/dataset/bygg-no-rules.json -rn rennebu -mp 10
 
-
-
 ./kai create_predicted_buildings_contour --region training_data/regions/balsfjord_small_area.geojson -cn multiplex-mish-f16-resnet-norway-e14 -c config/dataset/bygg-no-rules.json -rn balsfjord_small_area -mp 10
-
 
 ./kai create_predicted_buildings_contour --region training_data/regions/sig_master_test_omrade.json -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn rennebu -mp 10

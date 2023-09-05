@@ -10,7 +10,7 @@ from azure import blobstorage
 import shutil
 import env
 from pandasgui import show
-from kartai.dataset.create_building_dataset import get_all_predicted_buildings_dataset, get_fkb_labels, run_ml_predictions
+from kartai.dataset.create_polygon_dataset import get_all_predicted_features_dataset, get_fkb_labels, run_ml_predictions
 from kartai.dataset.performance_count import get_new_buildings_fasit, get_performance_count_for_detected_buildings, get_true_labels
 from kartai.dataset.resultRegion import ResultRegion
 from kartai.dataset.test_area_utils import get_test_region_avgrensning_dir
@@ -27,7 +27,7 @@ def add_parser(subparser):
         help="show results table",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument('-test_region', type=str, choices=[ResultRegion.KRISTIANSAND, ResultRegion.BALSFJORD],
+    parser.add_argument('-test_region', type=str, choices=ResultRegion.get_values(),
                         help='A test region to run prediction on', required=False)
     parser.add_argument('-preview', type=bool,
                         help='preview results so far', required=False, default=False)
@@ -198,7 +198,7 @@ def run_performance_tests(models: list[Model], crs: str, region: str, region_nam
         predictions_path = sorted(
             glob.glob(get_raster_predictions_dir(region_name+"_test_area", model)+f"/*{output_predictions_name}"))
 
-        prediction_dataset_gdf = get_all_predicted_buildings_dataset(
+        prediction_dataset_gdf = get_all_predicted_features_dataset(
             predictions_path, crs, region)
 
         performance_output_dir = get_performance_output_dir(region_name)
@@ -294,6 +294,7 @@ def create_performance_metadata_file(region_name: ResultRegion, IoU: float, mode
         "IoU": IoU,
         "Sanne detekterte bygnigner": true_buildings_count,
         "Falske detekterte bygninger": false_count,
+        "Prosentandel detektert bygg": (true_buildings_count / (true_buildings_count + all_missing_count))*100,
         "Manglende detekterte bygninger": all_missing_count,
         "Sanne detekterte 'nye' bygninger": true_new_buildings_count,
         "training_params": {

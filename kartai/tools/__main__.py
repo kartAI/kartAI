@@ -27,9 +27,9 @@ def add_parsers():
     elif tool == "download_models":
         from kartai.tools import download_models
         download_models.add_parser(subparser)
-    elif tool == "create_predicted_buildings_dataset":
-        from kartai.tools import create_predicted_buildings_dataset
-        create_predicted_buildings_dataset.add_parser(subparser)
+    elif tool == "create_predicted_features_dataset":
+        from kartai.tools import create_predicted_features_dataset
+        create_predicted_features_dataset.add_parser(subparser)
     elif tool == "create_predicted_buildings_contour":
         from kartai.tools import create_predicted_buildings_contour
         create_predicted_buildings_contour.add_parser(subparser)
@@ -69,7 +69,7 @@ def validate_existing_paths(args):
     args_obj = vars(args)
 
     for param in path_params:
-        if(param in args_obj and args_obj[param] and not os.path.exists(args_obj[param])):
+        if (param in args_obj and args_obj[param] and not os.path.exists(args_obj[param])):
             raise Exception(f"{param} does not exist in path", args_obj[param])
 
 
