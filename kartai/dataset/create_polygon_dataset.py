@@ -279,7 +279,8 @@ def produce_vector_dataset(output_dir: str, raster_dir: str, config: dict, max_b
     print('output_dir', output_dir)
     predictions_path = []
     for filename in raster_filenames:
-        predictions_path.append(os.path.join(raster_dir, filename))
+        if "prediction" in filename:
+            predictions_path.append(os.path.join(raster_dir, filename))
 
     print('num predictions', len(predictions_path))
 
@@ -474,7 +475,7 @@ def clip_to_polygon(dataset: gp.GeoDataFrame, polygon_file: str, crs: str):
 def merge_connected_geoms(geoms: gp.geodataframe):
     try:
         dissolved_geoms = geoms.dissolve()
-        dissolved_geoms = dissolved_geoms.explode().reset_index(drop=True)
+        dissolved_geoms = dissolved_geoms.explode(index_parts=True).reset_index(drop=True)
         return dissolved_geoms
     except Exception:
         print("could not connect geoms")

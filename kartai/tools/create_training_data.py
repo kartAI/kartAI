@@ -2,14 +2,12 @@ import argparse
 import collections
 import datetime
 import json
-import math
 import os
 import random
 import sys
 import uuid
 
-import numpy as np
-from osgeo import gdal, ogr, osr
+from osgeo import gdal, ogr
 
 from env import get_env_variable
 from kartai.datamodels_and_services.Region import Region
