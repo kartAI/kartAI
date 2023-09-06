@@ -286,7 +286,8 @@ def main(args):
 
 def train(checkpoint_name: str, dataset_name: str, input_generator_config_path: str, save_model: bool, train_args: dict, checkpoint_to_finetune: str):
 
-    check_for_existing_model(checkpoint_name)
+    if save_model:
+        check_for_existing_model(checkpoint_name)
 
     created_datasets_dirs = get_dataset_dirs(dataset_name)
 
