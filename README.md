@@ -382,7 +382,7 @@ We have created an automatic process for generating a result table that gives an
 ### Result table
 
 Get a complete view of performance of the different models.
-The script opens a GUI table to view results, as well as creating an excel file.
+The script creates an excel file containing performance of models, and if the `visualize` flag is set, opens a GUI table in the browser to view the results.
 
 By default the module shows an overview of IoU from validation during training.
 By passing a test_region we will run a prediction on the given region, and perform a comparison to a manually edited dataset with labels to see how the model actually performs.
@@ -393,6 +393,8 @@ Arguments:
 | ---------------- | :------------------------------------------------------------------------------------------------ | -------- | ---------------------- | ------- |
 | -test_region     | Run test on a region, and get counts of detected buildings, missing buildings and false buildings | No       | "ksand" or "balsfjord" | None    |
 | -download_models | Downloading all trained models from azure                                                         | No       | bool                   | False   |
+| -preview         | Preview results so far                                                                            | No       | bool                   | False   |
+| -visualize       | Spin up a backend to visualize the model performance from a dataframe in a browser window         | No       | bool                   | False   |
 
 Unix:
 
