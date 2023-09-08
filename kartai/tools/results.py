@@ -34,7 +34,7 @@ def add_parser(subparser):
     parser.add_argument('-download_models', type=bool,
                         help='Downloading existing trained models from azure', required=False, default=False)
     parser.add_argument('-visualize', type=bool,
-                        help='Spin up a backend to visualize the model performance from a dataframe in a browser window', required=False, default=False)
+                        help='Spin up a backend to visualize the model performance from a dataframe in a browser window', required=False, default=True)
 
     parser.set_defaults(func=main)
 
