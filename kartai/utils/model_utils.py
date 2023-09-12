@@ -1,5 +1,6 @@
 import os
 from tensorflow import keras
+import tensorflow as tf
 from kartai.utils.confidence import Confidence
 from kartai.utils.dataset_utils import get_ground_truth, get_X_stack, get_X_tuple
 from kartai.metrics.meanIoU import (IoU, IoU_fz, Iou_point_5, Iou_point_6,
@@ -66,7 +67,11 @@ def load_checkpoint_model(checkpoint_name: str) -> keras.Sequential:
         "Confidence": Confidence()
     }
 
-    model = keras.models.load_model(model_fn, custom_objects=dependencies)
+    save_options = tf.saved_model.SaveOptions(
+        experimental_io_device='/job:localhost')
+
+    model = keras.models.load_model(
+        model_fn, custom_objects=dependencies, options=save_options)
 
     return model
 

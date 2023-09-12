@@ -167,8 +167,13 @@ def get_ml_model(input_model_name: Model, input_model_subfolder: str = None) -> 
         'IoU_fz': IoU_fz,
         "Confidence": Confidence()
     }
+    print("checkpoint_path", checkpoint_path)
+
+    save_options = tf.saved_model.SaveOptions(
+        experimental_io_device='/job:localhost')
+
     model = keras.models.load_model(
-        checkpoint_path, custom_objects=dependencies)
+        checkpoint_path, custom_objects=dependencies, options=save_options)
     return model
 
 

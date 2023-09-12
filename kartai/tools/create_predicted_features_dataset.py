@@ -49,8 +49,8 @@ def main(args):
 
     projection = get_projection_from_config_path(args.config_path)
 
-    run_ml_predictions(args.checkpoint_name, args.region_name, projection,
-                       config=config, geom=geom, num_processes=args.num_load_processes)
+    """ run_ml_predictions(args.checkpoint_name, args.region_name, projection,
+                       config=config, geom=geom, num_processes=args.num_load_processes) """
 
     time.sleep(2)  # Wait for complete saving to disk
 

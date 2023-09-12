@@ -39,7 +39,7 @@ def add_parser(subparser):
                         help="Number of parallell processes to run when downloading training data")
     parser.add_argument("-c", "--config_path", type=str,
                         help="Data configuration file", default="config/dataset/bygg-no-rules.json")
-    parser.add_argument("-l", "--contour_levels", type=str, default="0.3, 0.4, 0.5, 0.6, 0.8, 0.9, 1",
+    parser.add_argument("-l", "--contour_levels", type=str, default="0.3, 0.5, 0.6, 0.8, 0.9, 1",
                         help="The confidence levels to create contours for. String with comma seperated float number", required=False)
 
     parser.set_defaults(func=main)
@@ -53,9 +53,9 @@ def main(args):
 
     config = read_config(args.config_path)
 
-    run_ml_predictions(args.input_model_name, args.region_name, projection, args.input_model_subfolder,
+    """  run_ml_predictions(args.input_model_name, args.region_name, projection, args.input_model_subfolder,
                        config=config, geom=geom, batch_size=args.batch_size, skip_data_fetching=False,
-                       save_to="local", num_processes=args.num_load_processes)
+                       save_to="local", num_processes=args.num_load_processes) """
 
     raster_output_dir = get_raster_predictions_dir(
         args.region_name, args.input_model_name)
