@@ -1,6 +1,8 @@
+import os
+
 config = {
-    "NK_WMS_API_KEY": "Insert WMS API key here",
-    "OSM_DB_PWD": "Insert OSM DB secret here",
+    "NK_WMS_API_KEY": os.environ['NK_WMS_API_KEY'],
+    "OSM_DB_PWD": os.environ['OSM_DB_PWD'],
     "metadata_container_name": "modelsmetadata-v2",
     "models_container_name": "models-v2",
     "ksand_performances_container_name": "ksand-performances",
