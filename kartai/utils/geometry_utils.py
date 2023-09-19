@@ -3,7 +3,7 @@ from osgeo import ogr, osr
 import os
 
 
-def parse_feature_region(feature, from_CRS=25832):
+def parse_feature_region(feature, from_CRS=25832) -> ogr.Geometry:
     region = ogr.CreateGeometryFromJson(json.dumps(feature['geometry']))
     out_CRS = 25832
     if from_CRS != out_CRS:
