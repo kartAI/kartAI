@@ -5,7 +5,6 @@ import os
 
 def parse_feature_region(feature, from_CRS=25832):
     region = ogr.CreateGeometryFromJson(json.dumps(feature['geometry']))
-    print("region", region)
     out_CRS = 25832
     if from_CRS != out_CRS:
         transform(region, from_CRS, out_CRS)
