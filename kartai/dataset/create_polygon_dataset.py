@@ -57,7 +57,7 @@ def run_ml_predictions(input_model_name: str, region_name: str, projection: str,
     dataset_path_to_predict = dataset_path_to_predict if dataset_path_to_predict else get_dataset_to_predict_dir(
         region_name)
 
-    if skip_data_fetching == False:
+    if skip_data_fetching is False:
         prepare_dataset_to_predict(
             region_name, geom, config, num_processes=num_processes)
 
@@ -475,7 +475,8 @@ def clip_to_polygon(dataset: gp.GeoDataFrame, polygon_file: str, crs: str):
 def merge_connected_geoms(geoms: gp.geodataframe):
     try:
         dissolved_geoms = geoms.dissolve()
-        dissolved_geoms = dissolved_geoms.explode(index_parts=True).reset_index(drop=True)
+        dissolved_geoms = dissolved_geoms.explode(
+            index_parts=True).reset_index(drop=True)
         return dissolved_geoms
     except Exception:
         print("could not connect geoms")
