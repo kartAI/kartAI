@@ -4,9 +4,8 @@ import os
 
 
 def parse_feature_region(feature, from_CRS=25832, swap_coords=False) -> ogr.Geometry:
-
     if swap_coords:
-        swap_coordinates_in_polygon_feature(feature)
+        feature = swap_coordinates_in_polygon_feature(feature)
 
     region = ogr.CreateGeometryFromJson(json.dumps(feature['geometry']))
     out_CRS = 25832
@@ -26,6 +25,7 @@ def swap_coordinates_in_polygon_feature(feature):
     for coord in coordinates:
         swapped_coordinates.append([coord[1], coord[0]])
     feature['geometry']['coordinates'][0] = swapped_coordinates
+    return feature
 
 
 def parse_region_arg(region: str, format="OGRLayer") -> ogr.Geometry:
