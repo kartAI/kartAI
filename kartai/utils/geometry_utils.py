@@ -17,7 +17,7 @@ def parse_feature_region(feature, from_CRS=25832, swap_coords=False) -> ogr.Geom
 
 
 def swap_coordinates_in_polygon_feature(feature):
-    # Only support polygo for now
+    # Only support polygon for now
     if feature['geometry']['type'] != "Polygon":
         raise ValueError(
             f"Only supports polygon, but {feature['geometry']['type']} was passed")
