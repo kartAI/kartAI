@@ -237,3 +237,11 @@ Produce vector data:
 ./kai create_predicted_buildings_contour --region training_data/regions/balsfjord_small_area.geojson -cn multiplex-mish-f16-resnet-norway-e14 -c config/dataset/bygg-no-rules.json -rn balsfjord_small_area -mp 10
 
 ./kai create_predicted_buildings_contour --region training_data/regions/sig_master_test_omrade.json -cn xl_resnet_mish_2 -c config/dataset/bygg-no-rules.json -rn rennebu -mp 10
+
+
+
+
+./kai create_training_data -n balsfjord_testarea -c config/dataset/balsfjord_test_area.json --region training_data/regions/balsfjord_test_area.geojson
+
+
+./kai create_training_data -n harde_flater -c config/dataset/harde_flater.json --region training_data/regions/fredrik_treningsomrade.geosjon

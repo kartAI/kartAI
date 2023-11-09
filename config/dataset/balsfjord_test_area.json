@@ -1,0 +1,39 @@
+{
+  "TileGrid": {
+    "srid": 25832,
+    "x0": 563000.0,
+    "y0": 6623000.0,
+    "dx": 100.0,
+    "dy": 100.0
+  },
+  "ImageSources": [
+    {
+      "name": "OrtofotoWMS",
+      "type": "WMSImageSource",
+      "image_format": "image/tiff",
+      "url": "https://waapi.webatlas.no/wms-orto/",
+      "api_key": "NK_WMS_API_KEY",
+      "layers": ["ortofoto"],
+      "styles": ["new_up"]
+    },
+    {
+      "name": "Balsford_manuel_labels",
+      "type": "VectorFileImageSource",
+      "image_format": "image/tiff",
+      "file_path": "training_data/balsfjord_test_area/adjusted_labels.shp",
+      "srid": 25832
+    }
+  ],
+  "ImageSets": [
+    {
+      "name": "image",
+      "source": "OrtofotoWMS",
+      "tile_size": 512
+    },
+    {
+      "name": "label",
+      "source": "Balsford_manuel_labels",
+      "tile_size": 512
+    }
+  ]
+}
