@@ -40,7 +40,9 @@ The repository allows you to easily create training data for any sort of vector 
 
 ## Colab notebook workshop
 
-In the `/workshop_material` folder there is a notebook for testing the main features of this repository. Head over there if you want to have some fun!
+In the `/workshop_material` folder there is a notebook for testing the main features of this repository. If you want to try out the notebook you need two secrets. Contact the AI-team at Norkart if you want to try it out!
+
+Link to notebook: https://colab.research.google.com/github/kartAI/kartAI/blob/master/workshop_material/introduction_to_geospatial_ai_colab.ipynb
 
 ## Prerequisites
 
