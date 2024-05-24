@@ -8,31 +8,41 @@ The repository allows you to easily create training data for any sort of vector 
 
 ## Table of Contents
 
-- [Prerequisites](#prerequisites)
-- [Setup](#setup)
-  - [Conda environment](#conda-environment)
-  - [Running scripts](#running-scripts)
-  - [Environment variables](#environment-variables)
-- [Models](#models)
-  - [Implemented models](#implemented-models)
-  - [Download existing trained models](#download-existing-trained-models)
-  - [Upload model](#upload-model)
-- [Training data](#training-data)
-  - [Dataset config file](#dataset-config-file)
-    - [Tile grid](#tile-grid)
-    - [Image Sources](#image-sources)
-  - [Create Training Data Script](#create-training-data-script)
+- [KartAI](#kartai)
+  - [Table of Contents](#table-of-contents)
+  - [Colab notebook workshop](#colab-notebook-workshop)
+  - [Prerequisites](#prerequisites)
+  - [Setup](#setup)
+    - [Conda environment](#conda-environment)
+    - [Running scripts](#running-scripts)
+    - [Environment variables](#environment-variables)
+  - [Models](#models)
+    - [Implemented models](#implemented-models)
+    - [Download existing trained models](#download-existing-trained-models)
+    - [Upload model](#upload-model)
+  - [Training data](#training-data)
+    - [Dataset config file](#dataset-config-file)
+      - [Tile grid](#tile-grid)
+      - [Image Sources](#image-sources)
+    - [Created dataset format](#created-dataset-format)
+    - [Create Training Data Script](#create-training-data-script)
   - [Data teacher](#data-teacher)
-- [Train](#train)
-  - [Datagenerator config file](#datagenerator-config-file)
-  - [Train script](#train-script)
-  - [Run multiple training processes](#run-multiple-training-processes)
-- [Evaluating the models](#evaluating-the-models)
-  - [Result table](#result-table)
-- [Using the trained models](#using-the-trained-models)
-  - [Predict](#predict)
-  - [Create vectordata](#create-vectordata)
-  - [Create countour vectordata](#create-contour-vectordata)
+  - [Train](#train)
+    - [Datagenerator config file](#datagenerator-config-file)
+    - [Train script](#train-script)
+    - [Run multiple training processes](#run-multiple-training-processes)
+  - [Evaluating the models](#evaluating-the-models)
+    - [Result table](#result-table)
+  - [Using the trained models](#using-the-trained-models)
+    - [Predict](#predict)
+    - [Create vectordata](#create-vectordata)
+    - [Create contour vectordata](#create-contour-vectordata)
+
+## Colab notebook workshop
+
+In the `/workshop_material` folder there is a notebook for testing the main features of this repository. If you want to try out the notebook you need two secrets. Contact the kartAI developers if you want to try it out!
+
+Link to notebook: https://colab.research.google.com/github/kartAI/kartAI/blob/master/workshop_material/introduction_to_geospatial_ai_colab.ipynb
 
 ## Prerequisites
 
