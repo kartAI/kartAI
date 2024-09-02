@@ -5,7 +5,7 @@ class Confidence(tf.keras.metrics.Metric):
         super(Confidence, self).__init__(**kwargs)
         self.confidence_sum = self.add_weight(
             name='confidence_sum', initializer='zeros')
-        self.count = self.add_weight("count", initializer="zeros")
+        self.count = self.add_weight(name="count", initializer="zeros")
         self.confidence = []
         if confusion_weight < 0.:
             confusion_weight = 0.
