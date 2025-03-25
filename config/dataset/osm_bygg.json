@@ -42,8 +42,7 @@
         "rules": [
           {
             "type": "PixelValueAreaFraction",
-            "values": [1],
-            "more_than": 0.05
+            "values": [1]
           }
         ]
       }
