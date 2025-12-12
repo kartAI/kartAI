@@ -1,0 +1,44 @@
+{
+  "TileGrid": {
+    "srid": 25832,
+    "x0": 563000.0,
+    "y0": 6623000.0,
+    "dx": 100.0,
+    "dy": 100.0
+  },
+  "ImageSources": [
+    {
+      "name": "OrtofotoFile",
+      "type": "ImageFileImageSource",
+      "image_format": "image/tiff",
+      "file_path": "PLACEHOLDER_URL_TO_COG_FILE",
+      "comment": "Replace PLACEHOLDER_URL_TO_COG_FILE with URL to Cloud Optimized GeoTIFF or local file path"
+    },
+    {
+      "srid": 25832,
+      "name": "OSMByggFile",
+      "type": "VectorFileImageSource",
+      "image_format": "image/tiff",
+      "file_path": "PLACEHOLDER_URL_TO_FLATGEOBUF",
+      "comment": "Replace PLACEHOLDER_URL_TO_FLATGEOBUF with URL to FlatGeobuf file or local file path"
+    }
+  ],
+  "ImageSets": [
+    {
+      "name": "image",
+      "source": "OrtofotoFile",
+      "tile_size": 512
+    },
+    {
+      "name": "label",
+      "source": "OSMByggFile",
+      "tile_size": 512,
+      "rules": [
+        {
+          "type": "PixelValueAreaFraction",
+          "values": [1]
+        }
+      ]
+    }
+  ]
+}

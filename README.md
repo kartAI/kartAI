@@ -40,9 +40,13 @@ The repository allows you to easily create training data for any sort of vector 
 
 ## Colab notebook workshop
 
-In the `/workshop_material` folder there is a notebook for testing the main features of this repository. If you want to try out the notebook you need two secrets. Contact the kartAI developers if you want to try it out!
+The `/workshop_material` folder contains a self-contained notebook for learning about geospatial AI and building detection. The workshop is designed to run in Google Colab and automatically clones this repository to access the necessary tools and configurations.
 
-Link to notebook: https://colab.research.google.com/github/kartAI/kartAI/blob/master/workshop_material/introduction_to_geospatial_ai_colab.ipynb
+To participate, you'll need workshop credentials (contact the kartAI developers for access).
+
+**Link to notebook:** [Open in Google Colab](https://colab.research.google.com/github/kartAI/kartAI/blob/master/workshop_material/introduction_to_geospatial_ai_colab.ipynb)
+
+For more details, see the [workshop README](/workshop_material/README.md).
 
 ## Prerequisites
 
