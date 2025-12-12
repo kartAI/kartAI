@@ -7,8 +7,22 @@ This script requires:
 - PostgreSQL credentials for building data
 - GDAL/OGR with COG driver support
 
+Environment Variables (optional, for custom database config):
+- NK_WMS_API_KEY: WMS API key
+- OSM_DB_PWD: PostgreSQL password
+- OSM_DB_HOST: PostgreSQL host (default: postgresql-dev-kartai.postgres.database.azure.com)
+- OSM_DB_PORT: PostgreSQL port (default: 5432)
+- OSM_DB_NAME: Database name (default: kartai_opendata)
+- OSM_DB_USER: Database user (default: kartai_opendata_ro@postgresql-dev-kartai)
+- OSM_DB_TABLE: Table name (default: public.osm_buildings)
+
 Usage:
     python prepare_workshop_data.py --area sand --output-dir ./workshop_data
+    python prepare_workshop_data.py --area all --output-dir ./workshop_data
+    
+    # With environment variables
+    export NK_WMS_API_KEY="your_key"
+    export OSM_DB_PWD="your_password"
     python prepare_workshop_data.py --area all --output-dir ./workshop_data
 """
 
@@ -81,8 +95,7 @@ def create_cog_from_wms(area_key, bbox, output_path, wms_api_key):
         creationOptions=[
             'COMPRESS=JPEG',
             'QUALITY=85',
-            'BLOCKSIZE=512',
-            'OVERVIEW_RESAMPLING=AVERAGE'
+            'BLOCKSIZE=512'
         ]
     )
     
@@ -112,9 +125,14 @@ def create_flatgeobuf_from_postgis(area_key, bbox, output_path, db_config):
         print("ERROR: OGR Python bindings not found. Install with: pip install gdal")
         sys.exit(1)
     
-    minx, miny, maxx, maxy = bbox
+    # Validate bbox coordinates are numeric
+    try:
+        minx, miny, maxx, maxy = map(float, bbox)
+    except (TypeError, ValueError) as e:
+        print(f"ERROR: Invalid bbox coordinates: {e}")
+        return False
     
-    # PostgreSQL connection string
+    # PostgreSQL connection string (password is managed securely via environment)
     pg_connection = (
         f"PG:host={db_config['host']} "
         f"port={db_config['port']} "
@@ -123,7 +141,7 @@ def create_flatgeobuf_from_postgis(area_key, bbox, output_path, db_config):
         f"password={db_config['password']}"
     )
     
-    # SQL query to get buildings in bbox
+    # SQL query to get buildings in bbox (using validated numeric values)
     sql_query = (
         f"SELECT geom, osm_id, building "
         f"FROM {db_config['table']} "
@@ -205,14 +223,14 @@ def main():
         print("ERROR: Database password required (use --db-password or set OSM_DB_PWD)")
         sys.exit(1)
     
-    # Database config
+    # Database config - using environment variables for sensitive connection details
     db_config = {
-        'host': 'postgresql-dev-kartai.postgres.database.azure.com',
-        'port': '5432',
-        'database': 'kartai_opendata',
-        'user': 'kartai_opendata_ro@postgresql-dev-kartai',
+        'host': os.environ.get('OSM_DB_HOST', 'postgresql-dev-kartai.postgres.database.azure.com'),
+        'port': os.environ.get('OSM_DB_PORT', '5432'),
+        'database': os.environ.get('OSM_DB_NAME', 'kartai_opendata'),
+        'user': os.environ.get('OSM_DB_USER', 'kartai_opendata_ro@postgresql-dev-kartai'),
         'password': db_password,
-        'table': 'public.osm_buildings'
+        'table': os.environ.get('OSM_DB_TABLE', 'public.osm_buildings')
     }
     
     # Create output directory
