@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 Script to prepare workshop data files (COG and FlatGeobuf) from existing sources.
 
@@ -30,6 +30,9 @@ import argparse
 import os
 import sys
 from pathlib import Path
+
+# Default resolution for aerial imagery (meters per pixel)
+DEFAULT_RESOLUTION = 0.25
 
 # Workshop areas with bounding boxes (EPSG:25832)
 WORKSHOP_AREAS = {
@@ -63,12 +66,14 @@ def create_cog_from_wms(area_key, bbox, output_path, wms_api_key):
     try:
         from osgeo import gdal
     except ImportError:
-        print("ERROR: GDAL Python bindings not found. Install with: pip install gdal")
+        print("ERROR: GDAL Python bindings not found.")
+        print("Install with conda: conda install -c conda-forge gdal")
+        print("Or with pip (requires GDAL system libraries): pip install gdal")
         sys.exit(1)
     
     minx, miny, maxx, maxy = bbox
-    width = int((maxx - minx) / 0.25)  # 0.25m resolution
-    height = int((maxy - miny) / 0.25)
+    width = int((maxx - minx) / DEFAULT_RESOLUTION)
+    height = int((maxy - miny) / DEFAULT_RESOLUTION)
     
     # WMS URL
     wms_url = (
@@ -122,7 +127,9 @@ def create_flatgeobuf_from_postgis(area_key, bbox, output_path, db_config):
     try:
         from osgeo import ogr
     except ImportError:
-        print("ERROR: OGR Python bindings not found. Install with: pip install gdal")
+        print("ERROR: OGR Python bindings not found.")
+        print("Install with conda: conda install -c conda-forge gdal")
+        print("Or with pip (requires GDAL system libraries): pip install gdal")
         sys.exit(1)
     
     # Validate bbox coordinates are numeric
